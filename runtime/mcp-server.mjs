@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { createInterface } from 'node:readline';
+import { createRequire } from 'node:module';
 import { handle } from './agent-tools-runtime.mjs';
+
+const require = createRequire(import.meta.url);
+const runtimeVersion = require('../package.json').version;
 
 const tools = [
   {
@@ -22,7 +26,7 @@ function reply(id, result) { return { jsonrpc: '2.0', id, result }; }
 function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 
 async function processMessage(message) {
-  if (message.method === 'initialize') return reply(message.id, { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'agent-tools-runtime', version: '0.8.0' } });
+  if (message.method === 'initialize') return reply(message.id, { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'agent-tools-runtime', version: runtimeVersion } });
   if (message.method === 'notifications/initialized') return null;
   if (message.method === 'tools/list') return reply(message.id, { tools });
   if (message.method !== 'tools/call') return error(message.id, -32601, `Unsupported method: ${message.method}`);

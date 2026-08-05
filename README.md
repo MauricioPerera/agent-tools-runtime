@@ -52,7 +52,7 @@ npm install @rckflr/agent-tools-runtime
 Para iniciar la fachada MCP sin instalarla globalmente:
 
 ```powershell
-npx --yes --package=@rckflr/agent-tools-runtime@0.1.2 --call agent-tools-mcp
+npx --yes --package=@rckflr/agent-tools-runtime@0.1.3 --call agent-tools-mcp
 ```
 
 Si ejecutas el comando desde el propio checkout `agent-tools-runtime`, usa el
@@ -60,7 +60,7 @@ prefijo del directorio padre para que npm no confunda el paquete local con el
 paquete remoto:
 
 ```powershell
-npx --prefix .. --yes --package=@rckflr/agent-tools-runtime@0.1.2 --call agent-tools-mcp
+npx --prefix .. --yes --package=@rckflr/agent-tools-runtime@0.1.3 --call agent-tools-mcp
 ```
 
 La release inicial también incluye un tarball instalable directamente desde

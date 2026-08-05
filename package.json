@@ -1,12 +1,18 @@
 {
-  "name": "@thehumanintheloop/agent-tools-runtime",
+  "name": "@rckflr/agent-tools-runtime",
   "version": "0.1.0",
   "type": "module",
   "description": "Persistent just-bash runtime with progressive MCP, REST and CLI adapter discovery.",
   "license": "MIT",
-  "publishConfig": { "access": "public" },
-  "engines": { "node": ">=20.18.1" },
-  "bin": { "agent-tools": "./bin/agent-tools.mjs" },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "bin": {
+    "agent-tools": "./bin/agent-tools.mjs"
+  },
   "files": [
     "README.md",
     "LICENSE",
@@ -17,7 +23,9 @@
     "scripts",
     "package.json"
   ],
-  "dependencies": { "just-bash": "^3.2.0" },
+  "dependencies": {
+    "just-bash": "^3.2.0"
+  },
   "scripts": {
     "probe": "node scripts/runtime_probe.mjs --json",
     "serve": "node runtime/agent-tools-runtime.mjs serve",

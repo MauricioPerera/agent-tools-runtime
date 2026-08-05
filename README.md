@@ -42,17 +42,22 @@ npm run mcp
 
 ## Instalación desde una release
 
-La release inicial incluye un tarball instalable directamente desde GitHub:
+El paquete está publicado en npm como
+[`@rckflr/agent-tools-runtime`](https://www.npmjs.com/package/@rckflr/agent-tools-runtime):
+
+```powershell
+npm install @rckflr/agent-tools-runtime
+```
+
+La release inicial también incluye un tarball instalable directamente desde
+GitHub:
 
 ```powershell
 npm install https://github.com/MauricioPerera/agent-tools-runtime/releases/download/v0.1.0/rckflr-agent-tools-runtime-0.1.0.tgz
 ```
 
 Después de instalarlo, el ejecutable queda disponible como `agent-tools`.
-La publicación en el registro npm se habilitará cuando exista una sesión npm
-autenticada para el scope `@thehumanintheloop`.
-
-El repositorio también incluye un workflow de publicación. Para activarlo se
+El repositorio incluye un workflow de publicación. Para futuras versiones se
 debe configurar el secret `NPM_TOKEN` en GitHub; después puede ejecutarse
 manualmente o al publicar una release con tag `v*`.
 

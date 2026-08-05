@@ -15,6 +15,8 @@ jobs:
   publish:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -33,6 +35,11 @@ jobs:
         run: npm test && npm run probe
 
       - name: Publish to npm
+        if: env.NPM_TOKEN != ''
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Report missing npm credentials
+        if: env.NPM_TOKEN == ''
+        run: echo "NPM_TOKEN is not configured; package verification passed and npm publication was skipped."

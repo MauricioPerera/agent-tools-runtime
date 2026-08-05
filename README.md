@@ -40,6 +40,18 @@ La fachada MCP se inicia con:
 npm run mcp
 ```
 
+## Instalación desde una release
+
+La release inicial incluye un tarball instalable directamente desde GitHub:
+
+```powershell
+npm install https://github.com/MauricioPerera/agent-tools-runtime/releases/download/v0.1.0/thehumanintheloop-agent-tools-runtime-0.1.0.tgz
+```
+
+Después de instalarlo, el ejecutable queda disponible como `agent-tools`.
+La publicación en el registro npm se habilitará cuando exista una sesión npm
+autenticada para el scope `@thehumanintheloop`.
+
 El preflight puede comprobar un CLI sin ejecutarlo:
 
 ```powershell

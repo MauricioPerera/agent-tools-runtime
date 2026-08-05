@@ -49,6 +49,12 @@ El paquete está publicado en npm como
 npm install @rckflr/agent-tools-runtime
 ```
 
+Para iniciar la fachada MCP sin instalarla globalmente:
+
+```powershell
+npx --yes --package @rckflr/agent-tools-runtime@0.1.1 agent-tools-mcp
+```
+
 La release inicial también incluye un tarball instalable directamente desde
 GitHub:
 

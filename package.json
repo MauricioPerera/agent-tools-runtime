@@ -1,6 +1,6 @@
 {
   "name": "@rckflr/agent-tools-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Persistent just-bash runtime with progressive MCP, REST and CLI adapter discovery.",
   "license": "MIT",
@@ -11,7 +11,8 @@
     "node": ">=20.18.1"
   },
   "bin": {
-    "agent-tools": "./bin/agent-tools.mjs"
+    "agent-tools": "./bin/agent-tools.mjs",
+    "agent-tools-mcp": "./bin/agent-tools-mcp.mjs"
   },
   "files": [
     "README.md",

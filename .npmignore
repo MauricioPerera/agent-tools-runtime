@@ -1,0 +1,9 @@
+node_modules/
+test/
+.gitignore
+.npmignore
+npm-debug.log*
+.claude-plugin/
+.codex-plugin/
+.mcp.json
+skills/

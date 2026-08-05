@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Persistent just-bash runtime with progressive MCP, REST and CLI adapter discovery.",
   "license": "MIT",
+  "publishConfig": { "access": "public" },
   "engines": { "node": ">=20.18.1" },
   "bin": { "agent-tools": "./bin/agent-tools.mjs" },
   "files": [

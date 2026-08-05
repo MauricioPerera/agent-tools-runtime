@@ -52,6 +52,10 @@ Después de instalarlo, el ejecutable queda disponible como `agent-tools`.
 La publicación en el registro npm se habilitará cuando exista una sesión npm
 autenticada para el scope `@thehumanintheloop`.
 
+El repositorio también incluye un workflow de publicación. Para activarlo se
+debe configurar el secret `NPM_TOKEN` en GitHub; después puede ejecutarse
+manualmente o al publicar una release con tag `v*`.
+
 El preflight puede comprobar un CLI sin ejecutarlo:
 
 ```powershell

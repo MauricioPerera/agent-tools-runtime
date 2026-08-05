@@ -11,8 +11,8 @@
     "node": ">=20.18.1"
   },
   "bin": {
-    "agent-tools": "./bin/agent-tools.mjs",
-    "agent-tools-mcp": "./bin/agent-tools-mcp.mjs"
+    "agent-tools": "bin/agent-tools.mjs",
+    "agent-tools-mcp": "bin/agent-tools-mcp.mjs"
   },
   "files": [
     "README.md",

@@ -141,6 +141,10 @@ test('MCP facade exposes only two stable tools', async (t) => {
   const help = (await waitFor(3)).result.content[0].text;
   assert.match(help, /commands\/generic-mcp\.mjs/);
   assert.match(help, /commands\/local-cli\.mjs/);
+  send({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'agent_tools_exec', arguments: { command: 'status' } } });
+  const status = JSON.parse((await waitFor(4)).result.content[0].text);
+  assert.equal(status.code, 0);
+  assert.equal(status.data.status, 'READY');
 });
 
 test('standalone package starts the MCP facade from its runtime entrypoint', async () => {

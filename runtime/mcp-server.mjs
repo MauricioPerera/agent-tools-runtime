@@ -31,7 +31,15 @@ async function processMessage(message) {
   if (name !== 'agent_tools_exec') return error(message.id, -32602, `Unknown tool: ${name}`);
   const command = message.params?.arguments?.command;
   if (typeof command !== 'string' || !command.trim()) return error(message.id, -32602, 'command must be a non-empty string');
-  const result = await handle({ action: 'exec', command });
+  const loadMatch = command.match(/^load\s+([^\s]+)$/);
+  const action = command === 'status'
+    ? { action: 'status' }
+    : command === 'list'
+      ? { action: 'list' }
+      : loadMatch
+        ? { action: 'load', module: loadMatch[1] }
+        : { action: 'exec', command };
+  const result = await handle(action);
   return reply(message.id, { isError: result.code !== 0, content: [{ type: 'text', text: JSON.stringify(result) }] });
 }
 

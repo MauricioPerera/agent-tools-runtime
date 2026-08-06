@@ -1,6 +1,33 @@
 const DEFAULT_URL = 'https://ardf.dev/mcp-server/http';
 import { authStatus, getAccessToken } from './n8n-oauth.mjs';
 
+/** Distancia de Levenshtein, sin dependencias (mismo criterio que validateArguments en mcp-server.mjs). */
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const row = new Array(n + 1);
+  for (let j = 0; j <= n; j++) row[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = row[j];
+      row[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, row[j], row[j - 1]);
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+/** Nombres candidatos ordenados por similitud descendente (1 = idéntico, 0 = nada en común). */
+export function closestMatches(input, candidates, limit = 3) {
+  const scored = candidates.map((name) => {
+    const dist = levenshtein(input, name);
+    const maxLen = Math.max(input.length, name.length) || 1;
+    return { name, similarity: 1 - dist / maxLen };
+  });
+  return scored.sort((a, b) => b.similarity - a.similarity).slice(0, limit);
+}
+
 async function readPayload(response) {
   const text = await response.text();
   try { return JSON.parse(text); } catch {
@@ -59,7 +86,14 @@ export class N8nMcpAdapter {
   async describe(name) {
     const listed = await this.listTools();
     const tool = (listed.tools || []).find((candidate) => candidate.name === name);
-    if (!tool) throw new Error(`Unknown n8n tool: ${name}`);
+    if (!tool) {
+      const names = (listed.tools || []).map((t) => t.name);
+      const suggestions = closestMatches(name, names).filter((m) => m.similarity >= 0.5);
+      const hint = suggestions.length
+        ? ` ¿Quisiste decir: ${suggestions.map((s) => s.name).join(', ')}?`
+        : '';
+      throw new Error(`Unknown n8n tool: ${name}.${hint}`);
+    }
     return tool;
   }
 

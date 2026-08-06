@@ -3,7 +3,10 @@
 import { createInterface } from 'node:readline';
 import { createRequire } from 'node:module';
 import { handle } from './agent-tools-runtime.mjs';
-import { N8nMcpAdapter } from '../adapters/n8n-mcp.mjs';
+import { N8nMcpAdapter, closestMatches } from '../adapters/n8n-mcp.mjs';
+
+const FACADE_TOOL_NAMES = ['agent_tools_help', 'agent_tools_exec', 'agent_tools_n8n_discover', 'agent_tools_n8n_call'];
+const FACADE_AUTOROUTE_THRESHOLD = 0.6;
 
 const require = createRequire(import.meta.url);
 const runtimeVersion = require('../package.json').version;
@@ -165,24 +168,48 @@ async function processMessage(message) {
   const name = message.params?.name;
   const args = message.params?.arguments || {};
 
-  if (name === 'agent_tools_help') return reply(message.id, { content: [{ type: 'text', text: help }] });
+  // Fuzzy-match del nombre de tool de la fachada (agent_tools_*): el conjunto de
+  // candidatos es fijo y chico, así que auto-enrutar un typo es de bajo riesgo
+  // (a diferencia del toolName interno de n8n, que puede disparar una acción real
+  // y por eso solo sugiere, ver handleN8nCall/describe en n8n-mcp.mjs).
+  let resolvedName = name;
+  if (!FACADE_TOOL_NAMES.includes(name)) {
+    // La forma de los argumentos es una señal más fuerte que la similitud de texto
+    // para desambiguar discover vs call (ej. "agent_tools_n8n_search" con {query}
+    // matchea por texto contra *_call, pero semánticamente es un discover).
+    const shapeMatch = 'toolName' in args ? 'agent_tools_n8n_call'
+      : ('query' in args && !('toolName' in args)) ? 'agent_tools_n8n_discover'
+      : null;
+    const [best] = closestMatches(name || '', FACADE_TOOL_NAMES, 1);
+    const route = shapeMatch || (best && best.similarity >= FACADE_AUTOROUTE_THRESHOLD ? best.name : null);
+    if (route) {
+      console.error(`[fuzzy-route] '${name}' -> '${route}' (${shapeMatch ? 'por forma de argumentos' : `similitud ${best.similarity.toFixed(2)}`})`);
+      resolvedName = route;
+    }
+  }
+
+  if (resolvedName === 'agent_tools_help') return reply(message.id, { content: [{ type: 'text', text: help }] });
 
   // Defensa en profundidad: cualquier excepción no prevista en el dispatch de
   // tools/call responde con reply(message.id, ...) en vez de escapar hacia el
   // catch global, que respondería con id:null y cuelga al cliente MCP.
   try {
-    if (name === 'agent_tools_n8n_discover') {
+    if (resolvedName === 'agent_tools_n8n_discover') {
       const result = await handleN8nDiscover(args);
       return reply(message.id, result);
     }
 
-    if (name === 'agent_tools_n8n_call') {
+    if (resolvedName === 'agent_tools_n8n_call') {
       const result = await handleN8nCall(args);
       const payload = JSON.parse(result.content[0].text);
       return reply(message.id, { isError: Boolean(payload.isError), ...result });
     }
 
-    if (name !== 'agent_tools_exec') return error(message.id, -32602, `Unknown tool: ${name}`);
+    if (resolvedName !== 'agent_tools_exec') {
+      const [best] = closestMatches(name || '', FACADE_TOOL_NAMES, 1);
+      const hint = best ? ` ¿Quisiste decir: ${best.name}?` : '';
+      return error(message.id, -32602, `Unknown tool: ${name}.${hint}`);
+    }
     const command = args.command;
     if (typeof command !== 'string' || !command.trim()) return error(message.id, -32602, 'command must be a non-empty string');
     const loadMatch = command.match(/^load\s+([^\s]+)$/);

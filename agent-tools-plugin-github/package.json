@@ -1,6 +1,6 @@
 {
   "name": "agent-tools-plugin-github",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "GitHub plugin for agent-tools-runtime: typed facade tools (search_repositories, get_repository, list_issues, get_latest_commit, create_issue) plus a deterministic repo-overview skill.",
   "license": "MIT",

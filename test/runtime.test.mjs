@@ -136,17 +136,19 @@ test('MCP facade exposes generic tools plus the typed facade generated from the 
   send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
   assert.equal((await waitFor(1)).result.serverInfo.name, 'agent-tools-runtime');
   send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
-  // Los últimos tres no están hardcodeados acá: los genera discoverPlugins() a
-  // partir de agent-tools-plugin-n8n/plugin.json (prefix: "n8n"). Si algún día
-  // ese plugin deja de tener skills, este assert dejaría de incluir
-  // agent_tools_n8n_run_skill -- ver buildFacadeToolsForPlugin en mcp-server.mjs.
-  assert.deepEqual((await waitFor(2)).result.tools.map((tool) => tool.name), [
-    'agent_tools_help',
-    'agent_tools_exec',
-    'agent_tools_n8n_discover',
-    'agent_tools_n8n_call',
-    'agent_tools_n8n_run_skill',
-  ]);
+  // No es un assert de igualdad exacta: hay 2 plugins reales en el repo
+  // (agent-tools-plugin-n8n, agent-tools-plugin-github) y discoverPlugins() los
+  // escanea a los dos -- una lista fija se rompería cada vez que se agregue un
+  // plugin nuevo. Se valida que los tools base y los de CADA plugin conocido
+  // estén presentes (subset), no el conjunto completo ni el orden.
+  const toolNames = (await waitFor(2)).result.tools.map((tool) => tool.name);
+  for (const expected of [
+    'agent_tools_help', 'agent_tools_exec',
+    'agent_tools_n8n_discover', 'agent_tools_n8n_call', 'agent_tools_n8n_run_skill',
+    'agent_tools_github_discover', 'agent_tools_github_call', 'agent_tools_github_run_skill',
+  ]) {
+    assert.ok(toolNames.includes(expected), `esperaba '${expected}' en tools/list, no estaba: ${toolNames.join(', ')}`);
+  }
   send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'agent_tools_help', arguments: {} } });
   const help = (await waitFor(3)).result.content[0].text;
   assert.match(help, /commands\/generic-mcp\.mjs/);
@@ -164,6 +166,12 @@ test('MCP facade exposes generic tools plus the typed facade generated from the 
   assert.equal(invalidSkill.result.isError, true);
   assert.match(invalidSkill.result.content[0].text, /Unknown skill: does-not-exist/);
   assert.match(invalidSkill.result.content[0].text, /insert-and-verify-datatable-row/);
+  // Segundo plugin (agent-tools-plugin-github): mismo contrato, otro servicio --
+  // valida que el gate de confirm no es algo especial del plugin de n8n.
+  send({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'agent_tools_github_call', arguments: { toolName: 'create_issue', arguments: { owner: 'x', repo: 'y', title: 'z' } } } });
+  const unconfirmedMutation = await waitFor(7);
+  assert.equal(unconfirmedMutation.result.isError, true);
+  assert.match(unconfirmedMutation.result.content[0].text, /Confirmation required for mutating github tool: create_issue/);
 });
 
 test('standalone package starts the MCP facade from its runtime entrypoint', async () => {

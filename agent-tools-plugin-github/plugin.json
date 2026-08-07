@@ -1,0 +1,9 @@
+{
+  "name": "github",
+  "prefix": "github",
+  "adapter": "./adapter.mjs",
+  "adapterExport": "GitHubAdapter",
+  "readonlyTools": ["search_repositories", "get_repository", "list_issues", "get_latest_commit"],
+  "skills": ["./skills/repo-overview.mjs"],
+  "discoverHint": "Requiere GITHUB_TOKEN configurado (scopes: repo)."
+}

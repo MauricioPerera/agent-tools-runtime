@@ -1,0 +1,34 @@
+{
+  "name": "agent-tools-plugin-github",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "GitHub plugin for agent-tools-runtime: typed facade tools (search_repositories, get_repository, list_issues, get_latest_commit, create_issue) plus a deterministic repo-overview skill.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "keywords": [
+    "agent-tools-runtime",
+    "mcp",
+    "github",
+    "agent-tools-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "agent-tools-plugin-github"
+  },
+  "peerDependencies": {
+    "@rckflr/agent-tools-runtime": ">=0.1.3"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "plugin.json",
+    "adapter.mjs",
+    "skills"
+  ]
+}

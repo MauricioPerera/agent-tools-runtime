@@ -4,8 +4,13 @@ import { createInterface } from 'node:readline';
 import { createRequire } from 'node:module';
 import { handle } from './agent-tools-runtime.mjs';
 import { N8nMcpAdapter, closestMatches } from '../adapters/n8n-mcp.mjs';
+import * as skillInsertAndVerifyRow from './skills/insert-and-verify-datatable-row.mjs';
 
-const FACADE_TOOL_NAMES = ['agent_tools_help', 'agent_tools_exec', 'agent_tools_n8n_discover', 'agent_tools_n8n_call'];
+const SKILLS = {
+  'insert-and-verify-datatable-row': skillInsertAndVerifyRow,
+};
+
+const FACADE_TOOL_NAMES = ['agent_tools_help', 'agent_tools_exec', 'agent_tools_n8n_discover', 'agent_tools_n8n_call', 'agent_tools_n8n_run_skill'];
 const FACADE_AUTOROUTE_THRESHOLD = 0.6;
 
 const require = createRequire(import.meta.url);
@@ -53,6 +58,19 @@ const tools = [
         confirm: { type: 'boolean', description: 'true para permitir tools que mutan estado' },
       },
       required: ['toolName'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'agent_tools_n8n_run_skill',
+    description: 'Ejecuta una receta determinista (secuencia de tools de n8n con reintentos fijos, sin generar código en el momento) para una tarea completa. Preferir sobre agent_tools_n8n_call cuando exista una skill para la tarea: menos pasos, sin loops de sintaxis. Skills disponibles: insert-and-verify-datatable-row (inserta un valor en una data table y confirma que se puede releer).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        skill: { type: 'string', description: 'Nombre exacto de la skill, ej: insert-and-verify-datatable-row' },
+        arguments: { type: 'object', description: 'Argumentos de la skill' },
+      },
+      required: ['skill', 'arguments'],
       additionalProperties: false,
     },
   },
@@ -159,6 +177,22 @@ async function handleN8nCall(args) {
   }
 }
 
+async function handleN8nRunSkill(args) {
+  const skillName = args?.skill;
+  const skillArgs = args?.arguments && typeof args.arguments === 'object' ? args.arguments : {};
+  const skill = SKILLS[skillName];
+  if (!skill) {
+    const hint = Object.keys(SKILLS).length ? ` Skills disponibles: ${Object.keys(SKILLS).join(', ')}.` : '';
+    return jsonContent({ isError: true, error: `Unknown skill: ${skillName}.${hint}` });
+  }
+  try {
+    const result = await skill.run(n8nAdapter, skillArgs);
+    return jsonContent(result);
+  } catch (e) {
+    return jsonContent({ isError: true, error: e.message });
+  }
+}
+
 async function processMessage(message) {
   if (message.method === 'initialize') return reply(message.id, { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'agent-tools-runtime', version: runtimeVersion } });
   if (message.method === 'notifications/initialized') return null;
@@ -177,7 +211,8 @@ async function processMessage(message) {
     // La forma de los argumentos es una señal más fuerte que la similitud de texto
     // para desambiguar discover vs call (ej. "agent_tools_n8n_search" con {query}
     // matchea por texto contra *_call, pero semánticamente es un discover).
-    const shapeMatch = 'toolName' in args ? 'agent_tools_n8n_call'
+    const shapeMatch = 'skill' in args ? 'agent_tools_n8n_run_skill'
+      : 'toolName' in args ? 'agent_tools_n8n_call'
       : ('query' in args && !('toolName' in args)) ? 'agent_tools_n8n_discover'
       : null;
     const [best] = closestMatches(name || '', FACADE_TOOL_NAMES, 1);
@@ -201,6 +236,12 @@ async function processMessage(message) {
 
     if (resolvedName === 'agent_tools_n8n_call') {
       const result = await handleN8nCall(args);
+      const payload = JSON.parse(result.content[0].text);
+      return reply(message.id, { isError: Boolean(payload.isError), ...result });
+    }
+
+    if (resolvedName === 'agent_tools_n8n_run_skill') {
+      const result = await handleN8nRunSkill(args);
       const payload = JSON.parse(result.content[0].text);
       return reply(message.id, { isError: Boolean(payload.isError), ...result });
     }

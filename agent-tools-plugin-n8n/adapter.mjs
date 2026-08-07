@@ -81,4 +81,24 @@ export class N8nMcpAdapter {
   async authStatus() {
     return authStatus();
   }
+
+  /** Hook opcional que el loader de plugins llama tras discover() para adjuntar
+   * contexto extra a la respuesta (ver runtime/mcp-server.mjs, handleDiscover).
+   * Antes del refactor a plugins esto vivía hardcodeado en el handler genérico;
+   * ahora es responsabilidad del plugin, porque "cuál es tu proyecto personal"
+   * es un concepto de n8n, no algo que el runtime deba saber en general. */
+  async discoverContext() {
+    let personalProject = null;
+    try {
+      const raw = await this.call('search_projects', {});
+      const text = raw?.content?.[0]?.text;
+      const parsed = typeof text === 'string' ? JSON.parse(text) : raw;
+      const list = parsed?.data || [];
+      personalProject = list.find((p) => p.type === 'personal') || list[0] || null;
+    } catch { /* best-effort: si falla, seguimos sin contexto de proyecto */ }
+    return {
+      personalProject,
+      hint: 'Si el usuario no nombró un proyecto específico, omití projectId al crear workflows; create_data_table sí requiere el id del proyecto personal devuelto aquí.',
+    };
+  }
 }

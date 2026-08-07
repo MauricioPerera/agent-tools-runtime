@@ -149,7 +149,8 @@ async function handleDiscover(plugin, args) {
   } catch (e) {
     return jsonContent({ isError: true, error: e.message });
   }
-  return jsonContent({ query: query || null, matches });
+  const context = plugin.adapter.discoverContext ? await plugin.adapter.discoverContext() : undefined;
+  return jsonContent({ query: query || null, matches, ...(context ? { context } : {}) });
 }
 
 async function handleCall(plugin, args) {

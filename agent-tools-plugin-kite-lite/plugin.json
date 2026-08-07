@@ -1,9 +1,19 @@
 {
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "kite-lite",
-  "prefix": "kite",
-  "adapter": "./adapter.mjs",
-  "adapterExport": "KiteLiteAdapter",
-  "readonlyTools": ["fetch_page", "eval_js", "browser_get_dom", "browser_screenshot", "render_screenshot"],
-  "skills": ["./skills/page-overview.mjs"],
-  "discoverHint": "Requiere el binario kite-lite compilado y accesible (KITE_LITE_BIN o 'kite-lite' en PATH)."
+  "version": "0.1.0",
+  "description": "agent-tools-runtime plugin for kite-lite: a stdio MCP client wrapping the kite-lite browsing/rendering engine, plus a deterministic page-overview skill.",
+  "license": "MIT",
+  "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
+  "keywords": ["agent-tools-runtime", "mcp", "kite-lite", "browser"],
+  "extensions": {
+    "dev.agent-tools-runtime": {
+      "prefix": "kite",
+      "adapter": "./adapter.mjs",
+      "adapterExport": "KiteLiteAdapter",
+      "readonlyTools": ["fetch_page", "eval_js", "browser_get_dom", "browser_screenshot", "render_screenshot"],
+      "skills": ["./skills/page-overview.mjs"],
+      "discoverHint": "Requiere el binario kite-lite compilado y accesible (KITE_LITE_BIN o 'kite-lite' en PATH)."
+    }
+  }
 }

@@ -47,29 +47,50 @@ function validateArguments(schema, args) {
   return errors;
 }
 
+const AGENT_PLUGINS_SCHEMA = 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json';
+const EXT_NAMESPACE = 'dev.agent-tools-runtime';
+
 /** Carga un plugin desde su directorio: lee plugin.json, instancia el adapter,
- * importa las skills. Un plugin = { name, prefix, adapter, readonlyTools, skills }. */
+ * importa las skills. Un plugin = { name, prefix, adapter, readonlyTools, skills }.
+ *
+ * El manifest es un plugin.json conforme a la Agent Plugins Specification 1.0.0
+ * (https://github.com/agentplugins/agent-plugins-spec) -- validado contra
+ * plugin.schema.json, no solo con esta forma esperada de memoria. Ese spec
+ * define plugin.json como metadata pura (name/version/author/...) más un
+ * namespace `extensions` para datos específicos de cada runtime; lo que antes
+ * vivía plano en la raíz del manifest (adapter, skills, readonlyTools) ahora
+ * vive en `extensions["dev.agent-tools-runtime"]` -- el spec no le asigna
+ * semántica al contenido de ese namespace, así que agent-tools-runtime es
+ * libre de definir la suya ahí. Ver plugin.json de cualquier agent-tools-plugin-. */
 async function loadPlugin(pluginDir) {
   const manifestPath = path.join(pluginDir, 'plugin.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 
-  const adapterModule = await import(pathToFileURL(path.join(pluginDir, manifest.adapter)));
-  const AdapterClass = adapterModule[manifest.adapterExport];
+  if (manifest.$schema !== AGENT_PLUGINS_SCHEMA) {
+    throw new Error(`plugin.json no declara $schema: "${AGENT_PLUGINS_SCHEMA}" (Agent Plugins Spec 1.0.0)`);
+  }
+  const ext = manifest.extensions?.[EXT_NAMESPACE];
+  if (!ext) {
+    throw new Error(`plugin.json no tiene extensions["${EXT_NAMESPACE}"] -- nada que agent-tools-runtime pueda cargar`);
+  }
+
+  const adapterModule = await import(pathToFileURL(path.join(pluginDir, ext.adapter)));
+  const AdapterClass = adapterModule[ext.adapterExport];
   const adapter = new AdapterClass();
 
   const skills = {};
-  for (const skillPath of manifest.skills || []) {
+  for (const skillPath of ext.skills || []) {
     const skillName = path.basename(skillPath, '.mjs');
     skills[skillName] = await import(pathToFileURL(path.join(pluginDir, skillPath)));
   }
 
   return {
     name: manifest.name,
-    prefix: manifest.prefix,
+    prefix: ext.prefix,
     adapter,
-    readonlyTools: new Set(manifest.readonlyTools || []),
+    readonlyTools: new Set(ext.readonlyTools || []),
     skills,
-    discoverHint: manifest.discoverHint || '',
+    discoverHint: ext.discoverHint || '',
   };
 }
 

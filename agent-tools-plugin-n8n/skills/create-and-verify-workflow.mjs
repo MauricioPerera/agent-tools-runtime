@@ -22,6 +22,24 @@ function findFailedNode(runData) {
   return null;
 }
 
+/** Detecta expr('literal') sin '{{ }}' adentro -- visto en corridas reales
+ * (cvwpilot_v5b_typed_1.json y _5.json): el modelo escribe expr('"texto"') para
+ * un valor fijo, sin necesidad de expr() en absoluto (existe justo para envolver
+ * '{{ ... }}', una expresión dinámica). n8n no lo rechaza -- es sintaxis válida
+ * del SDK -- pero termina guardando un valor asimétrico/inesperado (una comilla
+ * suelta), distinto al que el modelo pretendía escribir. No se puede detectar
+ * mirando solo el resultado de validate_workflow (pasa esa validación), así que
+ * se chequea acá, antes de gastar create+publish+execute en un intento que va a
+ * escribir el valor mal. */
+function findMisusedExpr(code) {
+  const matches = [...(code || '').matchAll(/expr\(\s*(?:'([^']*)'|"([^"]*)")\s*\)/g)];
+  for (const m of matches) {
+    const content = m[1] ?? m[2] ?? '';
+    if (!content.includes('{{')) return content;
+  }
+  return null;
+}
+
 /** Orquesta la operacion pedida. n8nAdapter: instancia de N8nMcpAdapter ya conectada. */
 export async function run(n8nAdapter, args) {
   const code = args?.code;
@@ -31,6 +49,24 @@ export async function run(n8nAdapter, args) {
 
   if (!code || !name) {
     return { isError: true, error: 'create-and-verify-workflow requires: code (SDK code), name' };
+  }
+
+  // 0. Chequeo previo, gratis (sin llamar a n8n): expr() mal usado sin '{{ }}'.
+  // No es un error de sintaxis (validate_workflow lo deja pasar), es un error
+  // semántico que solo se nota releyendo la ejecución -- se ataja acá para no
+  // gastar el ciclo completo create+publish+execute en un intento que iba a
+  // escribir el valor mal.
+  const misusedExpr = findMisusedExpr(code);
+  if (misusedExpr !== null) {
+    return {
+      isError: true, stage: 'validate', valid: false,
+      errors: [
+        `expr(${JSON.stringify(misusedExpr)}) no contiene '{{ }}' -- expr() es para expresiones dinámicas ` +
+        `('={{ $json.campo }}'), no para valores fijos. Si ${JSON.stringify(misusedExpr)} es un valor fijo, ` +
+        `pasalo directo como string sin expr() (ej. columns: { value: { col: ${JSON.stringify(misusedExpr)} } }). ` +
+        `Si necesitás una expresión dinámica real, escribila con '{{ }}' adentro.`,
+      ],
+    };
   }
 
   // 1. Validar primero, sin crear nada -- si falla, un solo objeto de vuelta con

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tasks",
+  "version": "0.1.0",
+  "description": "agent-tools-runtime plugin for a self-hosted tasks REST API: typed facade over a plain CRUD endpoint (no MCP, no OAuth) plus a deterministic insert-and-verify skill.",
+  "license": "MIT",
+  "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
+  "keywords": ["agent-tools-runtime", "mcp", "rest-api", "tasks"],
+  "extensions": {
+    "dev.agent-tools-runtime": {
+      "prefix": "tasks",
+      "adapter": "./adapter.mjs",
+      "adapterExport": "TasksAdapter",
+      "readonlyTools": ["list_tasks", "get_task"],
+      "skills": ["./skills/insert-and-verify-task.mjs"],
+      "discoverHint": "Requiere TASKS_API_KEY configurado (API propia, self-hosted)."
+    }
+  }
+}

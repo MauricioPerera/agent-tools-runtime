@@ -1,6 +1,6 @@
 {
   "name": "@rckflr/agent-tools-runtime",
-  "version": "0.1.3",
+  "version": "0.2.1",
   "type": "module",
   "description": "Persistent just-bash runtime with progressive MCP, REST and CLI adapter discovery.",
   "license": "MIT",

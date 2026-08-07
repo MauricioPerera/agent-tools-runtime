@@ -116,9 +116,30 @@ async function findPluginDirsIn(base) {
   return dirs;
 }
 
+/** Sube desde `startDir` por cada directorio padre hasta la raíz del filesystem,
+ * juntando un candidato `<ancestro>/node_modules` en cada nivel -- misma lógica
+ * que usa la resolución de módulos de Node para encontrar node_modules "hacia
+ * arriba". Necesario porque cuando este paquete se instala como dependencia
+ * (node_modules/@rckflr/agent-tools-runtime/runtime/mcp-server.mjs), su propio
+ * node_modules/ anidado casi nunca existe -- npm hoistea los plugins al
+ * node_modules/ del proyecto consumidor, uno o más niveles arriba. */
+function ancestorNodeModulesDirs(startDir) {
+  const dirs = [];
+  let current = startDir;
+  while (true) {
+    dirs.push(path.join(current, 'node_modules'));
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return dirs;
+}
+
 /** Plugins disponibles, escaneados de verdad (no una lista hardcodeada):
  *   1. Directorios agent-tools-plugin-* al lado de runtime/ (el caso de este repo).
- *   2. node_modules/agent-tools-plugin-* (el caso de instalar un plugin via npm).
+ *   2. node_modules/agent-tools-plugin-* en este paquete o en cualquier ancestro
+ *      (el caso de instalar un plugin via npm, incluido cuando el runtime mismo
+ *      vive dentro del node_modules/ de otro proyecto).
  *   3. $AGENT_TOOLS_PLUGINS_DIR/agent-tools-plugin-* (una carpeta externa cualquiera,
  *      para poder "soltar" un plugin sin que viva dentro del repo ni de node_modules).
  * Un plugin que falla al cargar se loguea a stderr y se saltea -- no tira abajo
@@ -127,7 +148,7 @@ async function discoverPlugins() {
   const repoRoot = path.join(__dirname, '..');
   const searchRoots = [
     repoRoot,
-    path.join(repoRoot, 'node_modules'),
+    ...ancestorNodeModulesDirs(repoRoot),
     process.env.AGENT_TOOLS_PLUGINS_DIR,
   ].filter(Boolean);
 

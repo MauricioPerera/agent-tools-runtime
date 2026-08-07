@@ -1,0 +1,9 @@
+{
+  "name": "kite-lite",
+  "prefix": "kite",
+  "adapter": "./adapter.mjs",
+  "adapterExport": "KiteLiteAdapter",
+  "readonlyTools": ["fetch_page", "eval_js", "browser_get_dom", "browser_screenshot", "render_screenshot"],
+  "skills": ["./skills/page-overview.mjs"],
+  "discoverHint": "Requiere el binario kite-lite compilado y accesible (KITE_LITE_BIN o 'kite-lite' en PATH)."
+}

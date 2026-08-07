@@ -40,6 +40,15 @@ export class KiteLiteAdapter {
       this.pending.clear();
       this.child = null;
     });
+    // Sin este handler, un spawn fallido (ej. KITE_LITE_BIN mal configurado,
+    // ENOENT) emite 'error' sin listener -- Node lo tira como excepcion no
+    // capturada y crashea TODO el proceso mcp-server.mjs, no solo este
+    // plugin. Bug real encontrado probando degradacion de infraestructura.
+    this.child.on('error', (err) => {
+      for (const waiter of this.pending.values()) waiter.reject(new Error(`kite-lite process failed to start: ${err.message}`));
+      this.pending.clear();
+      this.child = null;
+    });
   }
 
   request(method, params = {}) {

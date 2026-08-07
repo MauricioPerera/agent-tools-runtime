@@ -1,6 +1,6 @@
 {
   "name": "agent-tools-plugin-kite-lite",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "kite-lite plugin for agent-tools-runtime: a stdio MCP client that spawns the kite-lite binary (https://github.com/MauricioPerera/kite-lite) and exposes its browsing/rendering tools, plus a deterministic page-overview skill.",
   "license": "MIT",

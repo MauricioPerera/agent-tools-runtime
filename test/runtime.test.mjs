@@ -122,7 +122,7 @@ test('runtime status exposes adapter catalog without loading adapters', () => {
   assert.deepEqual(status.data.availableAdapters.map(({ name }) => name), ['generic-mcp', 'n8n-mcp', 'rest-api', 'local-cli']);
 });
 
-test('MCP facade exposes only two stable tools', async (t) => {
+test('MCP facade exposes generic tools plus the typed facade generated from the n8n plugin', async (t) => {
   const child = spawn(process.execPath, ['runtime/mcp-server.mjs'], { stdio: ['pipe', 'pipe', 'inherit'] });
   t.after(() => child.kill());
   const responses = [];
@@ -136,7 +136,17 @@ test('MCP facade exposes only two stable tools', async (t) => {
   send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
   assert.equal((await waitFor(1)).result.serverInfo.name, 'agent-tools-runtime');
   send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
-  assert.deepEqual((await waitFor(2)).result.tools.map((tool) => tool.name), ['agent_tools_help', 'agent_tools_exec']);
+  // Los últimos tres no están hardcodeados acá: los genera discoverPlugins() a
+  // partir de agent-tools-plugin-n8n/plugin.json (prefix: "n8n"). Si algún día
+  // ese plugin deja de tener skills, este assert dejaría de incluir
+  // agent_tools_n8n_run_skill -- ver buildFacadeToolsForPlugin en mcp-server.mjs.
+  assert.deepEqual((await waitFor(2)).result.tools.map((tool) => tool.name), [
+    'agent_tools_help',
+    'agent_tools_exec',
+    'agent_tools_n8n_discover',
+    'agent_tools_n8n_call',
+    'agent_tools_n8n_run_skill',
+  ]);
   send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'agent_tools_help', arguments: {} } });
   const help = (await waitFor(3)).result.content[0].text;
   assert.match(help, /commands\/generic-mcp\.mjs/);
@@ -145,6 +155,15 @@ test('MCP facade exposes only two stable tools', async (t) => {
   const status = JSON.parse((await waitFor(4)).result.content[0].text);
   assert.equal(status.code, 0);
   assert.equal(status.data.status, 'READY');
+  send({ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'agent_tools_n8n_call', arguments: {} } });
+  const invalidCall = await waitFor(5);
+  assert.equal(invalidCall.result.isError, true);
+  assert.match(invalidCall.result.content[0].text, /toolName is required/);
+  send({ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'agent_tools_n8n_run_skill', arguments: { skill: 'does-not-exist', arguments: {} } } });
+  const invalidSkill = await waitFor(6);
+  assert.equal(invalidSkill.result.isError, true);
+  assert.match(invalidSkill.result.content[0].text, /Unknown skill: does-not-exist/);
+  assert.match(invalidSkill.result.content[0].text, /insert-and-verify-datatable-row/);
 });
 
 test('standalone package starts the MCP facade from its runtime entrypoint', async () => {

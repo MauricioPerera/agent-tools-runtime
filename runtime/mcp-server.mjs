@@ -2,7 +2,7 @@
 
 import { createInterface } from 'node:readline';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -73,17 +73,54 @@ async function loadPlugin(pluginDir) {
   };
 }
 
-/** Plugins disponibles: cualquier directorio hermano de runtime/ que tenga un
- * plugin.json. Bajo demanda podría extenderse a node_modules/agent-tools-plugin-*,
- * pero para este fork alcanza con escanear el repo local. */
+const PLUGIN_DIR_PATTERN = /^agent-tools-plugin-/;
+
+/** Subdirectorios inmediatos de `base` cuyo nombre matchea `agent-tools-plugin-*`
+ * y que tienen un plugin.json. No recursivo: un plugin es siempre un directorio
+ * de primer nivel dentro de `base`. */
+async function findPluginDirsIn(base) {
+  if (!base || !existsSync(base)) return [];
+  let entries;
+  try {
+    entries = await readdir(base, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const dirs = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !PLUGIN_DIR_PATTERN.test(entry.name)) continue;
+    const pluginDir = path.join(base, entry.name);
+    if (existsSync(path.join(pluginDir, 'plugin.json'))) dirs.push(pluginDir);
+  }
+  return dirs;
+}
+
+/** Plugins disponibles, escaneados de verdad (no una lista hardcodeada):
+ *   1. Directorios agent-tools-plugin-* al lado de runtime/ (el caso de este repo).
+ *   2. node_modules/agent-tools-plugin-* (el caso de instalar un plugin via npm).
+ *   3. $AGENT_TOOLS_PLUGINS_DIR/agent-tools-plugin-* (una carpeta externa cualquiera,
+ *      para poder "soltar" un plugin sin que viva dentro del repo ni de node_modules).
+ * Un plugin que falla al cargar se loguea a stderr y se saltea -- no tira abajo
+ * el resto de los plugins que sí cargaron bien. */
 async function discoverPlugins() {
   const repoRoot = path.join(__dirname, '..');
-  const candidates = ['agent-tools-plugin-n8n'];
+  const searchRoots = [
+    repoRoot,
+    path.join(repoRoot, 'node_modules'),
+    process.env.AGENT_TOOLS_PLUGINS_DIR,
+  ].filter(Boolean);
+
+  const pluginDirs = new Set();
+  for (const root of searchRoots) {
+    for (const dir of await findPluginDirsIn(root)) pluginDirs.add(dir);
+  }
+
   const plugins = [];
-  for (const dir of candidates) {
-    const pluginDir = path.join(repoRoot, dir);
-    if (existsSync(path.join(pluginDir, 'plugin.json'))) {
+  for (const pluginDir of pluginDirs) {
+    try {
       plugins.push(await loadPlugin(pluginDir));
+    } catch (e) {
+      console.error(`[plugin] no se pudo cargar '${pluginDir}': ${e.message}`);
     }
   }
   return plugins;

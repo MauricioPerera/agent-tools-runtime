@@ -4,4 +4,4 @@ npm-debug.log*
 .claude-plugin/
 .codex-plugin/
 .mcp.json
-skills/
+/skills/

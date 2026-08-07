@@ -5,9 +5,13 @@ import { createRequire } from 'node:module';
 import { handle } from './agent-tools-runtime.mjs';
 import { N8nMcpAdapter, closestMatches } from '../adapters/n8n-mcp.mjs';
 import * as skillInsertAndVerifyRow from './skills/insert-and-verify-datatable-row.mjs';
+import * as skillDataTableCrud from './skills/data-table-crud.mjs';
+import * as skillCreateAndVerifyWorkflow from './skills/create-and-verify-workflow.mjs';
 
 const SKILLS = {
   'insert-and-verify-datatable-row': skillInsertAndVerifyRow,
+  'data-table-crud': skillDataTableCrud,
+  'create-and-verify-workflow': skillCreateAndVerifyWorkflow,
 };
 
 const FACADE_TOOL_NAMES = ['agent_tools_help', 'agent_tools_exec', 'agent_tools_n8n_discover', 'agent_tools_n8n_call', 'agent_tools_n8n_run_skill'];
@@ -63,7 +67,7 @@ const tools = [
   },
   {
     name: 'agent_tools_n8n_run_skill',
-    description: 'Ejecuta una receta determinista (secuencia de tools de n8n con reintentos fijos, sin generar código en el momento) para una tarea completa. Preferir sobre agent_tools_n8n_call cuando exista una skill para la tarea: menos pasos, sin loops de sintaxis. Skills disponibles: insert-and-verify-datatable-row (inserta un valor en una data table y confirma que se puede releer).',
+    description: 'Ejecuta una receta del lado del server para una tarea completa. Preferir sobre agent_tools_n8n_call cuando exista una skill para la tarea: menos pasos. Skills disponibles: insert-and-verify-datatable-row({column, value, dataTableId?, tableName?, confirm}) — inserta un valor y confirma que se puede releer, sin generar código; data-table-crud({operation: "create"|"insert"|"read", ...}) — create({name, columns}), insert({dataTableId, rows}), read({dataTableId, filters?}), sin generar código; create-and-verify-workflow({code, name, publish?}) — vos generás el código del @n8n/workflow-sdk, la skill lo valida, crea y publica en una sola llamada por intento (en vez de 3 llamadas separadas).',
     inputSchema: {
       type: 'object',
       properties: {

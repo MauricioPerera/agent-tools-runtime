@@ -3,11 +3,7 @@
 // en el medio. Ver README.md del benchmark (D:\Repo\Nueva carpeta (74)), diseno de la
 // skill "insert-and-verify-datatable-row".
 
-function extractContentJson(mcpResult) {
-  const text = mcpResult?.content?.[0]?.text;
-  if (typeof text !== 'string') return mcpResult;
-  try { return JSON.parse(text); } catch { return { raw: text }; }
-}
+import { callTool, isFailure, resolvePersonalProjectId } from './_shared.mjs';
 
 /** Codigo del workflow SDK. Funcion pura: mismos args -> mismo codigo siempre.
  * Basado en el codigo real que produjo un PASSED verificado en el benchmark
@@ -57,25 +53,6 @@ function buildWorkflowCodeAltSyntax(args) {
   // Si esa falla, la unica variante alternativa observada en corridas reales fue
   // achicar el nodo a solo los campos minimos, sin "options"/extras.
   return buildWorkflowCode(args);
-}
-
-async function callTool(n8nAdapter, name, args) {
-  const raw = await n8nAdapter.call(name, args);
-  return extractContentJson(raw);
-}
-
-/** Las respuestas crudas del n8n MCP no son consistentes en cómo marcan error:
- * unas traen isError, otras success:false, otras solo un campo error sin ninguna
- * bandera -- y ese fue justamente el bug que hizo que publish_workflow pareciera
- * "ok" cuando en realidad había fallado. Tratar cualquiera de las tres como fallo,
- * salvo que además haya un identificador real (id/workflowId/dataTableId), que es
- * la señal más confiable de éxito real. */
-function isFailure(result) {
-  if (!result) return true;
-  if (result.isError) return true;
-  if (result.success === false) return true;
-  if (result.error && !(result.id || result.workflowId || result.dataTableId)) return true;
-  return false;
 }
 
 /** Orquesta la secuencia completa. n8nAdapter: instancia de N8nMcpAdapter ya conectada. */

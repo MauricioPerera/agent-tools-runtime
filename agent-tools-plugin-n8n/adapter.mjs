@@ -15,8 +15,20 @@ async function readPayload(response) {
   }
 }
 
+/** Single source of truth for the instance's base URL: N8N_INSTANCE_URL (e.g.
+ * "https://ardf.dev"). Both this adapter (MCP) and the REST-based skills
+ * (resolveInstanceUrl in skills/_shared.mjs) derive their respective endpoints
+ * from it, so configuring one variable is enough for the whole plugin --
+ * N8N_MCP_URL remains a supported override for the rare case where MCP and
+ * REST are actually served from different hosts. */
+function resolveMcpUrl() {
+  if (process.env.N8N_MCP_URL) return process.env.N8N_MCP_URL;
+  if (process.env.N8N_INSTANCE_URL) return `${process.env.N8N_INSTANCE_URL.replace(/\/+$/, '')}/mcp-server/http`;
+  return DEFAULT_URL;
+}
+
 export class N8nMcpAdapter {
-  constructor({ url = process.env.N8N_MCP_URL || DEFAULT_URL, token = process.env.N8N_MCP_TOKEN } = {}) {
+  constructor({ url = resolveMcpUrl(), token = process.env.N8N_MCP_TOKEN } = {}) {
     this.url = url;
     this.token = token;
     this.tokenInfo = null;

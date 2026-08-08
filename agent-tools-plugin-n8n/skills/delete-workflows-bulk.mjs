@@ -11,7 +11,7 @@
 // corre con requireConfirm:false a proposito, ver plugin.json), sino porque
 // una llamada sin criterio no dice a que workflows aplica y "todos" no deberia
 // ser el default implicito de un bulk-delete.
-import { resolveInstanceUrl } from './_shared.mjs';
+import { resolveInstanceUrl, fetchAllWorkflows } from './_shared.mjs';
 
 export async function run(_adapter, args) {
   const url = resolveInstanceUrl(args?.url);
@@ -30,24 +30,12 @@ export async function run(_adapter, args) {
   const headers = { accept: 'application/json', 'X-N8N-API-KEY': process.env.N8N_API_KEY };
 
   // 1. Traer todos los workflows, siguiendo la paginacion por cursor.
-  let all = [];
-  let cursor = null;
-  do {
-    const listUrl = `${base}/api/v1/workflows?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-    let resp;
-    try {
-      resp = await fetch(listUrl, { headers });
-    } catch (e) {
-      return { isError: true, error: `list request failed: ${e.message}` };
-    }
-    let body = null;
-    try { body = await resp.json(); } catch { /* respuesta no-JSON, body queda null */ }
-    if (!resp.ok) {
-      return { isError: true, status: resp.status, error: body?.message || `HTTP ${resp.status}`, raw: body };
-    }
-    all = all.concat(body?.data || []);
-    cursor = body?.nextCursor || null;
-  } while (cursor);
+  let all;
+  try {
+    all = await fetchAllWorkflows(base, process.env.N8N_API_KEY);
+  } catch (e) {
+    return { isError: true, status: e.status, error: e.message, raw: e.raw };
+  }
 
   // 2. Filtrar
   let matched = all;

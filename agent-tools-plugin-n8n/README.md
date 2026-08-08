@@ -12,26 +12,27 @@ npm install agent-tools-plugin-n8n
 
 ## Configuración
 
-Dos formas de autenticarse contra tu instancia de n8n:
+Una sola variable de URL para todo el plugin, más las credenciales:
 
 ```bash
-# Token directo
-export N8N_MCP_TOKEN="<tu token>"
-export N8N_MCP_URL="https://tu-instancia.n8n/mcp-server/http"  # opcional, default ardf.dev
+export N8N_INSTANCE_URL="https://tu-instancia.n8n"   # una sola vez, cubre MCP y REST
+export N8N_MCP_TOKEN="<tu token MCP>"
+export N8N_API_KEY="<tu api key REST, Settings → n8n API>"  # solo si usás audit-workflows/delete-workflow(-bulk)
 
 # O un token store persistente en disco (ver n8n-oauth.mjs), si preferís
-# no pasar el token por variable de entorno cada vez.
+# no pasar N8N_MCP_TOKEN por variable de entorno cada vez.
 ```
 
-Para `audit-workflows`, `delete-workflow` y `delete-workflows-bulk` (las tres hablan la REST API,
-no el MCP — ver la sección de Skills), `url` es opcional y por default se deriva de `N8N_MCP_URL`
-sacándole el sufijo `/mcp-server/http`. Si preferís configurar la URL de la REST API de forma
-explícita en vez de depender de esa derivación (por ejemplo, si REST y MCP viven en hosts
-distintos), seteá:
+`N8N_INSTANCE_URL` es la única variable de URL que hace falta configurar: tanto el adapter MCP
+(`agent_tools_n8n_discover`/`_call`) como las tres skills que hablan la REST API directo
+(`audit-workflows`, `delete-workflow`, `delete-workflows-bulk` — ver la sección de Skills) la
+derivan de ahí, completando cada una el path que necesita (`/mcp-server/http` para el MCP, la raíz
+para la REST API). Ninguna llamada necesita que le pases `url` a mano.
 
-```bash
-export N8N_INSTANCE_URL="https://tu-instancia.n8n"  # opcional, tiene prioridad sobre la derivación de N8N_MCP_URL
-```
+`N8N_MCP_URL` (formato completo, con `/mcp-server/http`) sigue existiendo como override — solo
+hace falta si tu MCP y tu REST API viven en hosts distintos, o para configs de antes de que
+existiera `N8N_INSTANCE_URL`. Si no tenés ese caso puntual, no la definas: alcanza con
+`N8N_INSTANCE_URL`.
 
 ## Tools expuestas
 
@@ -86,6 +87,11 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   `export` (backup a `exportDir`), `nativeAudit` (envuelve `POST /api/v1/audit` de n8n), `executions`
   (tasa de error real por workflow), `credentials` (inventario de metadata, nunca valores).
 
+  `all` por default es `true` (catálogo completo, activos + inactivos) — el script solo trae
+  workflows activos si no se le pasa `--all`, así que un `inactive: 0` sin este default reflejaba
+  que nunca miró los inactivos, no que no existieran. Pasá `all: false` explícito solo si de verdad
+  querés la vista recortada a activos.
+
   El script trae siempre el resultado completo (en una instancia con cientos de workflows eso es
   decenas de KB en un solo array); la skill lo pagina después, sobre el JSON ya completo, sin tocar el
   script. Aplica a los modos que devuelven una lista grande — `audit`/`summary` (`workflows`),
@@ -116,6 +122,41 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   failed: [...] }` — `isError` solo es `true` si hubo matches y **ninguno** se pudo borrar; fallas
   parciales quedan en `failed` sin marcar la llamada entera como error. Requiere `N8N_API_KEY`, sin
   confirmación propia, misma política que `delete-workflow`.
+- **`find-workflows({ url?, active?, namePattern?, page?, pageSize? })`** — de solo lectura,
+  equivalente a `delete-workflows-bulk` pero sin el paso de borrado: mismo filtro (`active`/
+  `namePattern`, ambos opcionales acá — sin ninguno devuelve el catálogo completo), misma paginación
+  REST completa por dentro (comparten `fetchAllWorkflows` en `_shared.mjs`). Devuelve
+  `{ isError: false, totalWorkflows, matchedCount, workflows: [{id, name, active, createdAt,
+  updatedAt}, ...], pagination: {page, pageSize, totalItems, totalPages} }`. Existe porque la tool
+  MCP `search_workflows` de n8n **no es confiable para esto**: su schema real es solo
+  `limit`/`projectId`/`query`/`sortBy`/`tags` (tope `limit=200`), sin cursor ni filtro por `active` —
+  pedirle distintas páginas con parámetros que no existen (`offset`, `skip`) devuelve siempre el
+  mismo lote sin avisar del error. Usá `find-workflows` para cualquier "buscar/contar/listar
+  workflows [in]activos", y `search_workflows` solo para lo que sí soporta (buscar por nombre/tag
+  dentro de los primeros 200).
+- **`find-node-types({ queries: string[] })`** o **`find-node-types({ nodeIds: [{nodeId, resource?,
+  operation?, mode?, version?}, ...] })`** — junta `search_nodes`/`get_node_types` (las dos tools MCP
+  para identificar y tipar nodos antes de escribir código con `create-and-verify-workflow`) bajo una
+  skill con su propia validación, en vez del error genérico de `_call` cuando falta un argumento o
+  el shape no es el esperado. `queries` busca nodos por nombre/servicio (equivalente a
+  `search_nodes`, ya devuelve la guía de qué llamar después); `nodeIds` trae la definición
+  TypeScript exacta de nodos ya identificados (equivalente a `get_node_types`, valida que cada
+  entrada tenga `nodeId` antes de llamar). No acepta ambos a la vez — es un paso, no encadena
+  automáticamente de `queries` a `nodeIds`: la salida de `search_nodes` es texto libre pensado para
+  que lo lea un LLM (discriminadores anidados en prosa, no JSON estructurado), parsearlo a ciegas
+  para "elegir el mejor match" arriesgaría construir un `nodeId` equivocado en silencio.
+- **`create-credential({ type, name?, data? })`** — crea una credencial en n8n vía
+  `POST /api/v1/credentials` (no existe en el catálogo MCP — `list_credentials` es de solo lectura).
+  Sin `name`/`data`, solo trae el schema real del tipo (`GET /credentials/schema/{type}`) para saber
+  qué campos pide, sin crear nada. Con los tres, valida contra ese mismo schema que `data` tenga los
+  campos requeridos antes de llamar (error específico — "falta accessToken" — en vez del genérico de
+  n8n) y crea la credencial. **No obtiene secretos por su cuenta**: para tipos con token estático
+  (ej. `slackApi`, que solo pide `accessToken`) alcanza con que el humano haya generado ese token una
+  vez en la app de origen; para tipos OAuth2 reales (ej. `slackOAuth2Api`), conseguir el token todavía
+  exige el consentimiento por navegador — eso lo sigue haciendo un humano, esta skill solo registra
+  los datos ya obtenidos. Devuelve `{ isError: false, credentialId, name, type }` en éxito, o
+  `{ isError: false, mode: "schema", type, schema }` en el modo de solo consulta. Requiere
+  `N8N_API_KEY`, misma política que las demás skills REST de este plugin.
 
 ## Licencia
 

@@ -73,8 +73,13 @@ export async function run(_adapter, args) {
     return { isError: true, error: `mode inválido: '${mode}'. Válidos: ${[...VALID_MODES].join(', ')}` };
   }
 
+  // audit_n8n_workflows.py fetches only active workflows unless --all is passed --
+  // meaning "inactive: 0" in a summary is not evidence of zero inactive workflows,
+  // it's what you get any time inactive ones were never fetched in the first place.
+  // Default to the complete catalog (active + inactive) here so a report reflects the
+  // real instance unless the caller explicitly opts into the active-only view.
   const cliArgs = [SCRIPT_PATH, '--url', url];
-  if (args?.all) cliArgs.push('--all');
+  if (args?.all !== false) cliArgs.push('--all');
   if (args?.workflowId) cliArgs.push('--workflow-id', String(args.workflowId));
 
   if (mode === 'summary') {

@@ -36,7 +36,7 @@ etc.) — el catálogo lo define n8n, este plugin solo lo reenvía tipado.
 
 ## Skills
 
-Las tres, medidas en un benchmark real (ver [detalle](https://github.com/MauricioPerera/agent-tools-runtime)):
+Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.com/MauricioPerera/agent-tools-runtime)):
 
 - **`insert-and-verify-datatable-row({ column, value, dataTableId?, tableName?, confirm })`** —
   determinista, no genera código: crea la data table si hace falta, crea y publica un workflow con una
@@ -47,7 +47,24 @@ Las tres, medidas en un benchmark real (ver [detalle](https://github.com/Maurici
 - **`create-and-verify-workflow({ code, name, publish?, execute? })`** — la única genuinamente
   genérica: vos generás el código del `@n8n/workflow-sdk`, la skill valida/crea/publica/ejecuta en una
   sola llamada por intento, con errores estructurados por etapa.
+- **`audit-workflows({ url, mode?, all?, workflowId?, exportDir?, auditCategories?, daysAbandoned?, status?, maxExecutions? })`** —
+  auditoría de seguridad/robustez de solo lectura, vía la REST API de n8n (no el MCP). Envuelve
+  [`audit_n8n_workflows.py`](scripts/audit_n8n_workflows.py) (vendorizado desde
+  [`n8n-workflow-auditor`](https://github.com/MauricioPerera/thehumanintheloop-marketplace-codex/tree/main/plugins/n8n-workflow-auditor),
+  mismo autor, MIT) a través del adapter `local-cli` del runtime — no reescribe la lógica en JS. `mode`:
+  `audit` (default, 7 reglas por workflow: webhooks sin auth, credenciales hardcodeadas, nodos de alto
+  riesgo, error workflow, reintentos, nodos huérfanos, trigger alcanzable), `summary` (inventario),
+  `export` (backup a `exportDir`), `nativeAudit` (envuelve `POST /api/v1/audit` de n8n), `executions`
+  (tasa de error real por workflow), `credentials` (inventario de metadata, nunca valores).
+
+  Requiere en el entorno del proceso del runtime (no se puede pasar por argumento de la skill):
+  ```bash
+  export N8N_API_KEY="<api key REST de n8n, Settings → n8n API — distinta del token MCP>"
+  # opcional: export N8N_AUDIT_PYTHON_BIN="/ruta/a/python3"  # default: python3 en PATH
+  ```
 
 ## Licencia
 
-MIT.
+MIT. `scripts/audit_n8n_workflows.py` vendorizado desde
+[`thehumanintheloop-marketplace-codex`](https://github.com/MauricioPerera/thehumanintheloop-marketplace-codex),
+también MIT, mismo autor.

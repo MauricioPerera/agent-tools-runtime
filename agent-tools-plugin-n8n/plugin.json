@@ -21,9 +21,10 @@
       "skills": [
         "./skills/insert-and-verify-datatable-row.mjs",
         "./skills/data-table-crud.mjs",
-        "./skills/create-and-verify-workflow.mjs"
+        "./skills/create-and-verify-workflow.mjs",
+        "./skills/audit-workflows.mjs"
       ],
-      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId."
+      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId. La skill audit-workflows requiere N8N_API_KEY (REST API key, distinta de este token MCP) en el entorno del proceso del runtime."
     }
   }
 }

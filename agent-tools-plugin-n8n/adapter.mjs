@@ -1,6 +1,6 @@
 const DEFAULT_URL = 'https://ardf.dev/mcp-server/http';
 import { authStatus, getAccessToken } from './n8n-oauth.mjs';
-import { closestMatches } from '../runtime/fuzzy-match.mjs';
+import { closestMatches } from './fuzzy-match.mjs';
 
 export { closestMatches };
 

@@ -105,12 +105,17 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   export N8N_API_KEY="<api key REST de n8n, Settings → n8n API — distinta del token MCP>"
   # opcional: export N8N_AUDIT_PYTHON_BIN="/ruta/a/python3"  # default: python3 en PATH
   ```
-- **`delete-workflow({ url?, workflowId })`** — borrado real y permanente de un workflow, vía
-  `DELETE /api/v1/workflows/{id}` de la REST API de n8n (no el MCP — ver la nota de arriba sobre por qué
-  no es una tool de `_call`). Requiere `N8N_API_KEY` en el entorno del proceso del runtime, igual que
-  `audit-workflows`. Sin confirmación propia — coherente con `requireConfirm: false` del resto del
-  plugin: si se llama, borra. Devuelve `{ isError: false, workflowId, deleted: <workflow borrado> }` en
-  éxito, o `{ isError: true, status, error }` si n8n rechaza el pedido (ej. id inexistente → 404).
+- **`delete-workflow({ url?, workflowId })`** o **`delete-workflow({ url?, namePattern })`** —
+  borrado real y permanente de un workflow, vía `DELETE /api/v1/workflows/{id}` de la REST API de
+  n8n (no el MCP — ver la nota de arriba sobre por qué no es una tool de `_call`). `namePattern`
+  (mismo argumento que `find-workflows`/`delete-workflows-bulk`) resuelve a un `workflowId` via
+  substring match case-insensitive: error si matchea 0 workflows, o si matchea más de 1 (devuelve la
+  lista de matches en vez de adivinar cuál — para eso está `delete-workflows-bulk`). No acepta
+  `workflowId` y `namePattern` a la vez. Requiere `N8N_API_KEY` en el entorno del proceso del
+  runtime, igual que `audit-workflows`. Sin confirmación propia — coherente con
+  `requireConfirm: false` del resto del plugin: si se llama, borra. Devuelve
+  `{ isError: false, workflowId, deleted: <workflow borrado> }` en éxito, o
+  `{ isError: true, status, error }` si n8n rechaza el pedido (ej. id inexistente → 404).
 - **`delete-workflows-bulk({ url?, active?, namePattern? })`** — borra en lote los workflows que
   matchean el filtro. `active` (boolean) filtra por estado activo/inactivo; `namePattern` (string) hace
   substring match case-insensitive contra el nombre; se puede pasar uno, el otro, o ambos (AND). **Exige

@@ -5,11 +5,12 @@
 // audit-workflows usa la REST API (N8N_API_KEY) en vez del MCP para lo suyo.
 // No pide confirm propio: este plugin corre con requireConfirm:false
 // (ver plugin.json), la misma politica que el resto de sus tools mutantes.
+import { resolveInstanceUrl } from './_shared.mjs';
+
 export async function run(_adapter, args) {
-  const url = args?.url;
+  const url = resolveInstanceUrl(args?.url);
   const workflowId = args?.workflowId;
 
-  if (!url) return { isError: true, error: 'delete-workflow requires: url (URL base de tu instancia de n8n)' };
   if (!workflowId) return { isError: true, error: 'delete-workflow requires: workflowId' };
 
   if (!process.env.N8N_API_KEY) {

@@ -36,3 +36,20 @@ export async function resolvePersonalProjectId(n8nAdapter) {
     return (list.find((p) => p.type === 'personal') || list[0] || {}).id || null;
   } catch { return null; }
 }
+
+const N8N_MCP_URL_DEFAULT = 'https://ardf.dev/mcp-server/http';
+const MCP_PATH_SUFFIX = '/mcp-server/http';
+
+/** REST-based skills (audit-workflows, delete-workflow, delete-workflows-bulk) don't go
+ * through N8nMcpAdapter, so they never see N8N_MCP_URL/DEFAULT_URL automatically -- they
+ * used to require an explicit `url` argument every call even though the instance is
+ * already configured for the MCP side. Derives the REST base from N8N_MCP_URL (or the
+ * same default the adapter uses) by stripping the known /mcp-server/http suffix; an
+ * explicit `url` argument still wins, for the case where REST and MCP live on different
+ * hosts. */
+export function resolveInstanceUrl(explicitUrl) {
+  if (explicitUrl) return explicitUrl.replace(/\/+$/, '');
+  const mcpUrl = process.env.N8N_MCP_URL || N8N_MCP_URL_DEFAULT;
+  const base = mcpUrl.endsWith(MCP_PATH_SUFFIX) ? mcpUrl.slice(0, -MCP_PATH_SUFFIX.length) : mcpUrl;
+  return base.replace(/\/+$/, '');
+}

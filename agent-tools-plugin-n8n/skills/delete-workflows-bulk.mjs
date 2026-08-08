@@ -11,9 +11,10 @@
 // corre con requireConfirm:false a proposito, ver plugin.json), sino porque
 // una llamada sin criterio no dice a que workflows aplica y "todos" no deberia
 // ser el default implicito de un bulk-delete.
+import { resolveInstanceUrl } from './_shared.mjs';
+
 export async function run(_adapter, args) {
-  const url = args?.url;
-  if (!url) return { isError: true, error: 'delete-workflows-bulk requires: url (URL base de tu instancia de n8n)' };
+  const url = resolveInstanceUrl(args?.url);
 
   if (!process.env.N8N_API_KEY) {
     return { isError: true, error: 'delete-workflows-bulk requiere N8N_API_KEY en el entorno del proceso del runtime (API key REST de n8n, distinta del token MCP).' };

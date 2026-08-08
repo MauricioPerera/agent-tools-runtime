@@ -18,6 +18,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { resolveInstanceUrl } from './_shared.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,8 +62,7 @@ export function paginateReport(report, mode, args) {
 }
 
 export async function run(_adapter, args) {
-  const url = args?.url;
-  if (!url) return { isError: true, error: 'audit-workflows requires: url (URL base de tu instancia de n8n)' };
+  const url = resolveInstanceUrl(args?.url);
 
   if (!process.env.N8N_API_KEY) {
     return { isError: true, error: 'audit-workflows requiere N8N_API_KEY en el entorno del proceso del runtime (API key REST de n8n, distinta del token MCP -- se genera en Settings > n8n API).' };

@@ -46,6 +46,12 @@ parecido es `archive_workflow`, que archiva, no borra. Un borrado permanente sol
 de n8n (`DELETE /api/v1/workflows/{id}`), fuera del MCP; por eso es una skill aparte
 (`delete-workflow`, ver abajo), no una tool de `_call`.
 
+**`url` es opcional en `audit-workflows`, `delete-workflow` y `delete-workflows-bulk`**: estas tres
+hablan la REST API directo (no el MCP), así que no heredan `N8N_MCP_URL` del adapter automáticamente —
+pero si no se pasa `url`, lo derivan solas de `N8N_MCP_URL` (o su default), sacándole el sufijo
+`/mcp-server/http`. Pasar `url` explícito solo hace falta si tu REST API vive en un host distinto del
+MCP.
+
 ## Skills
 
 Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.com/MauricioPerera/agent-tools-runtime)):
@@ -59,7 +65,7 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
 - **`create-and-verify-workflow({ code, name, publish?, execute? })`** — la única genuinamente
   genérica: vos generás el código del `@n8n/workflow-sdk`, la skill valida/crea/publica/ejecuta en una
   sola llamada por intento, con errores estructurados por etapa.
-- **`audit-workflows({ url, mode?, all?, workflowId?, exportDir?, auditCategories?, daysAbandoned?, status?, maxExecutions?, page?, pageSize? })`** —
+- **`audit-workflows({ url?, mode?, all?, workflowId?, exportDir?, auditCategories?, daysAbandoned?, status?, maxExecutions?, page?, pageSize? })`** —
   auditoría de seguridad/robustez de solo lectura, vía la REST API de n8n (no el MCP). Envuelve
   [`audit_n8n_workflows.py`](scripts/audit_n8n_workflows.py) (vendorizado desde
   [`n8n-workflow-auditor`](https://github.com/MauricioPerera/thehumanintheloop-marketplace-codex/tree/main/plugins/n8n-workflow-auditor),
@@ -82,13 +88,13 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   export N8N_API_KEY="<api key REST de n8n, Settings → n8n API — distinta del token MCP>"
   # opcional: export N8N_AUDIT_PYTHON_BIN="/ruta/a/python3"  # default: python3 en PATH
   ```
-- **`delete-workflow({ url, workflowId })`** — borrado real y permanente de un workflow, vía
+- **`delete-workflow({ url?, workflowId })`** — borrado real y permanente de un workflow, vía
   `DELETE /api/v1/workflows/{id}` de la REST API de n8n (no el MCP — ver la nota de arriba sobre por qué
   no es una tool de `_call`). Requiere `N8N_API_KEY` en el entorno del proceso del runtime, igual que
   `audit-workflows`. Sin confirmación propia — coherente con `requireConfirm: false` del resto del
   plugin: si se llama, borra. Devuelve `{ isError: false, workflowId, deleted: <workflow borrado> }` en
   éxito, o `{ isError: true, status, error }` si n8n rechaza el pedido (ej. id inexistente → 404).
-- **`delete-workflows-bulk({ url, active?, namePattern? })`** — borra en lote los workflows que
+- **`delete-workflows-bulk({ url?, active?, namePattern? })`** — borra en lote los workflows que
   matchean el filtro. `active` (boolean) filtra por estado activo/inactivo; `namePattern` (string) hace
   substring match case-insensitive contra el nombre; se puede pasar uno, el otro, o ambos (AND). **Exige
   al menos uno de los dos** — sin filtro, error, no borra nada (no hay "borrar todo" implícito). Pagina

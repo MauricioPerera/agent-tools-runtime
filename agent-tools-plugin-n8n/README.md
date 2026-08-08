@@ -34,6 +34,13 @@ Con `prefix: "n8n"`, el runtime genera:
 `_call` da acceso a las tools del MCP de n8n (creación/lectura de workflows, data tables, ejecuciones,
 etc.) — el catálogo lo define n8n, este plugin solo lo reenvía tipado.
 
+**Este plugin corre con `requireConfirm: false`** (`plugin.json`, campo leído por el runtime desde
+`>=0.2.2`): a diferencia de los demás plugins de agent-tools-runtime, `agent_tools_n8n_call` ejecuta
+tools que mutan estado (`delete_workflow`, `create_workflow_from_code`, `publish_workflow`, etc.) sin
+exigir `confirm: true` — el argumento sigue existiendo en el schema por compatibilidad, pero no tiene
+efecto acá. No hay freno del lado del runtime contra una mutación o un delete accidental; queda en quien
+llama a la tool.
+
 ## Skills
 
 Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.com/MauricioPerera/agent-tools-runtime)):

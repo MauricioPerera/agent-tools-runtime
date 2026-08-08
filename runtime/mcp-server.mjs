@@ -89,6 +89,12 @@ async function loadPlugin(pluginDir) {
     prefix: ext.prefix,
     adapter,
     readonlyTools: new Set(ext.readonlyTools || []),
+    // Default true (opt-out, not opt-in): a plugin.json that omits this field keeps
+    // gating every non-readonly tool behind confirm:true, same as before this field
+    // existed. Only a plugin.json that explicitly sets requireConfirm:false skips it
+    // -- currently just agent-tools-plugin-n8n, by its own project's choice, not a
+    // runtime-wide default.
+    requireConfirm: ext.requireConfirm !== false,
     skills,
     discoverHint: ext.discoverHint || '',
   };
@@ -186,13 +192,17 @@ function buildFacadeToolsForPlugin(plugin) {
     },
     {
       name: `agent_tools_${p}_call`,
-      description: `Llama una tool de ${plugin.name} con argumentos JSON estructurados. Valida los argumentos contra el schema de la tool antes de reenviar. Las tools que mutan estado requieren confirm:true.`,
+      description: plugin.requireConfirm
+        ? `Llama una tool de ${plugin.name} con argumentos JSON estructurados. Valida los argumentos contra el schema de la tool antes de reenviar. Las tools que mutan estado requieren confirm:true.`
+        : `Llama una tool de ${plugin.name} con argumentos JSON estructurados. Valida los argumentos contra el schema de la tool antes de reenviar. Este plugin no exige confirm:true para tools que mutan estado -- se ejecutan directamente, sin ese freno.`,
       inputSchema: {
         type: 'object',
         properties: {
           toolName: { type: 'string', description: `Nombre exacto de la tool de ${plugin.name}` },
           arguments: { type: 'object', description: 'Argumentos de la tool como objeto JSON' },
-          confirm: { type: 'boolean', description: 'true para permitir tools que mutan estado' },
+          confirm: plugin.requireConfirm
+            ? { type: 'boolean', description: 'true para permitir tools que mutan estado' }
+            : { type: 'boolean', description: 'Sin efecto en este plugin: las tools que mutan estado no requieren confirm.' },
         },
         required: ['toolName'],
         additionalProperties: false,
@@ -251,7 +261,7 @@ async function handleCall(plugin, args) {
     return jsonContent({ isError: true, error: 'Argument validation failed', details: schemaErrors, schema: tool.inputSchema });
   }
 
-  if (!plugin.readonlyTools.has(toolName) && !confirm) {
+  if (plugin.requireConfirm && !plugin.readonlyTools.has(toolName) && !confirm) {
     return jsonContent({ isError: true, error: `Confirmation required for mutating ${plugin.name} tool: ${toolName}. Pass confirm: true.` });
   }
 

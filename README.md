@@ -32,8 +32,10 @@ MCP, generadas automáticamente a partir de su manifest:
 
 - `agent_tools_<prefix>_discover({ query? })` — busca tools del servicio por texto libre.
 - `agent_tools_<prefix>_call({ toolName, arguments, confirm? })` — llama una tool individual del
-  servicio, con el `arguments` validado contra su schema antes de reenviar. Las tools que mutan estado
-  requieren `confirm: true`.
+  servicio, con el `arguments` validado contra su schema antes de reenviar. Por defecto, las tools que
+  mutan estado requieren `confirm: true` — un plugin puede optar por lo contrario con
+  `requireConfirm: false` en su `plugin.json` (ver "Qué es un plugin"); hoy solo lo hace
+  `agent-tools-plugin-n8n`, por decisión propia de ese plugin, no default del runtime.
 - `agent_tools_<prefix>_run_skill({ skill, arguments })` — si el plugin trae skills, ejecuta una receta
   del lado del server para una tarea completa en una sola llamada, en vez de que el agente tenga que
   orquestar varias tool-calls.
@@ -71,6 +73,10 @@ Un plugin es un directorio cuyo nombre empieza con `agent-tools-plugin-` y conti
   LLM tenga que generar código en el momento), hacerlo así — es la diferencia entre una skill que falla
   ~1 de cada 10 veces y una que no falla nunca (medido en el benchmark del repo hermano, ver abajo).
 - **`readonlyTools`** son las tools del servicio que no requieren `confirm: true` en `_call`.
+- **`requireConfirm`** (opcional, default `true`): en `false`, ninguna tool del plugin exige
+  `confirm: true`, ni siquiera las que mutan estado — el campo `confirm` sigue en el schema de `_call`
+  por compatibilidad pero no tiene efecto. Es una decisión explícita del autor del plugin, no algo que
+  el runtime active por su cuenta.
 
 ### Cómo se descubren los plugins
 
@@ -156,9 +162,15 @@ npm run probe
 ## Diseño de seguridad
 
 Las credenciales permanecen en el host. Las skills y los adapters no deben
-recibir tokens como argumentos ni escribir secretos en archivos. Las
-operaciones mutantes requieren confirmación explícita y los CLIs se ejecutan
-sin shell implícito.
+recibir tokens como argumentos ni escribir secretos en archivos. Los CLIs se
+ejecutan sin shell implícito.
+
+Por defecto, las operaciones mutantes de cualquier plugin requieren
+confirmación explícita (`confirm: true`). Un plugin puede desactivar esto
+para sí mismo con `requireConfirm: false` en su `plugin.json` — es opt-out
+por plugin, no un flag global del runtime. Hoy lo hace `agent-tools-plugin-n8n`
+(ver su README): las llamadas a tools de n8n que mutan estado, incluyendo
+`delete_workflow`, se ejecutan sin ningún freno del lado del runtime.
 
 ## Integraciones
 

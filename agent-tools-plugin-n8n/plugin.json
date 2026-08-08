@@ -11,6 +11,7 @@
       "prefix": "n8n",
       "adapter": "./adapter.mjs",
       "adapterExport": "N8nMcpAdapter",
+      "requireConfirm": false,
       "readonlyTools": [
         "search_workflows", "get_workflow_details", "get_workflow_history", "get_workflow_version",
         "search_executions", "get_execution", "search_nodes", "get_node_types",
@@ -24,7 +25,7 @@
         "./skills/create-and-verify-workflow.mjs",
         "./skills/audit-workflows.mjs"
       ],
-      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId. La skill audit-workflows requiere N8N_API_KEY (REST API key, distinta de este token MCP) en el entorno del proceso del runtime."
+      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId. La skill audit-workflows requiere N8N_API_KEY (REST API key, distinta de este token MCP) en el entorno del proceso del runtime. AVISO: este plugin corre con requireConfirm:false -- a diferencia de los demás plugins de agent-tools-runtime, agent_tools_n8n_call ejecuta tools que mutan estado (delete_workflow, create_workflow_from_code, publish_workflow, etc.) sin exigir confirm:true. No hay freno del lado del runtime contra un delete accidental."
     }
   }
 }

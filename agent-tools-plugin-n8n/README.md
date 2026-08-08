@@ -157,6 +157,11 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   los datos ya obtenidos. Devuelve `{ isError: false, credentialId, name, type }` en éxito, o
   `{ isError: false, mode: "schema", type, schema }` en el modo de solo consulta. Requiere
   `N8N_API_KEY`, misma política que las demás skills REST de este plugin.
+- **`delete-credential({ url?, credentialId })`** — borrado real de una credencial, vía
+  `DELETE /api/v1/credentials/{id}` de la REST API (mismo motivo que `delete-workflow`: no existe en
+  el catálogo MCP). `credentialId` sale de `list_credentials`. Devuelve
+  `{ isError: false, credentialId, deleted }` en éxito. Requiere `N8N_API_KEY`, sin confirmación
+  propia — misma política `requireConfirm: false` que el resto del plugin.
 
 ## Licencia
 

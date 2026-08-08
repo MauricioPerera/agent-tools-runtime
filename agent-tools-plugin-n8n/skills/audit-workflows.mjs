@@ -27,6 +27,39 @@ const PYTHON_BIN = process.env.N8N_AUDIT_PYTHON_BIN || 'python3';
 
 const VALID_MODES = new Set(['audit', 'summary', 'export', 'nativeAudit', 'executions', 'credentials']);
 
+// audit_n8n_workflows.py returns the full result in one shot -- on an instance with
+// hundreds of workflows that's tens of KB in a single array, awkward for a calling
+// agent to consume (a real run against 355 workflows produced a 48KB "summary" that
+// had to spill to a temp file instead of returning inline). Rather than touch the
+// script (report shape doesn't change, still deterministic and testable on its own),
+// slice the one large array each mode actually returns after the fact here.
+const PAGINATED_ARRAY_KEY_BY_MODE = {
+  audit: 'workflows',
+  summary: 'workflows',
+  executions: 'by_workflow',
+  credentials: 'credentials',
+};
+const DEFAULT_PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
+
+export function paginateReport(report, mode, args) {
+  const key = PAGINATED_ARRAY_KEY_BY_MODE[mode];
+  const fullList = report?.[key];
+  if (!key || !Array.isArray(fullList)) return report;
+
+  const pageSize = Math.min(Math.max(1, Number(args?.pageSize) || DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+  const totalItems = fullList.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const page = Math.min(Math.max(1, Math.trunc(Number(args?.page)) || 1), totalPages);
+  const start = (page - 1) * pageSize;
+
+  return {
+    ...report,
+    [key]: fullList.slice(start, start + pageSize),
+    pagination: { page, pageSize, totalItems, totalPages },
+  };
+}
+
 export async function run(_adapter, args) {
   const url = args?.url;
   if (!url) return { isError: true, error: 'audit-workflows requires: url (URL base de tu instancia de n8n)' };
@@ -82,5 +115,5 @@ export async function run(_adapter, args) {
   } catch {
     return { isError: true, mode, error: 'audit_n8n_workflows.py no devolvió JSON válido', raw: stdout.slice(0, 2000) };
   }
-  return { isError: false, mode, report };
+  return { isError: false, mode, report: paginateReport(report, mode, args) };
 }

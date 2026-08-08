@@ -47,7 +47,7 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
 - **`create-and-verify-workflow({ code, name, publish?, execute? })`** — la única genuinamente
   genérica: vos generás el código del `@n8n/workflow-sdk`, la skill valida/crea/publica/ejecuta en una
   sola llamada por intento, con errores estructurados por etapa.
-- **`audit-workflows({ url, mode?, all?, workflowId?, exportDir?, auditCategories?, daysAbandoned?, status?, maxExecutions? })`** —
+- **`audit-workflows({ url, mode?, all?, workflowId?, exportDir?, auditCategories?, daysAbandoned?, status?, maxExecutions?, page?, pageSize? })`** —
   auditoría de seguridad/robustez de solo lectura, vía la REST API de n8n (no el MCP). Envuelve
   [`audit_n8n_workflows.py`](scripts/audit_n8n_workflows.py) (vendorizado desde
   [`n8n-workflow-auditor`](https://github.com/MauricioPerera/thehumanintheloop-marketplace-codex/tree/main/plugins/n8n-workflow-auditor),
@@ -56,6 +56,14 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   riesgo, error workflow, reintentos, nodos huérfanos, trigger alcanzable), `summary` (inventario),
   `export` (backup a `exportDir`), `nativeAudit` (envuelve `POST /api/v1/audit` de n8n), `executions`
   (tasa de error real por workflow), `credentials` (inventario de metadata, nunca valores).
+
+  El script trae siempre el resultado completo (en una instancia con cientos de workflows eso es
+  decenas de KB en un solo array); la skill lo pagina después, sobre el JSON ya completo, sin tocar el
+  script. Aplica a los modos que devuelven una lista grande — `audit`/`summary` (`workflows`),
+  `executions` (`by_workflow`), `credentials` (`credentials`) — no a `export`/`nativeAudit`. `page`
+  (default `1`) y `pageSize` (default `50`, tope `200`) son opcionales; la respuesta agrega un campo
+  `pagination: { page, pageSize, totalItems, totalPages }`. Pedir una página fuera de rango la ajusta a
+  la última disponible en vez de devolver vacío por error.
 
   Requiere en el entorno del proceso del runtime (no se puede pasar por argumento de la skill):
   ```bash

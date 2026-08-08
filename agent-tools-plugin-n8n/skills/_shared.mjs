@@ -43,12 +43,17 @@ const MCP_PATH_SUFFIX = '/mcp-server/http';
 /** REST-based skills (audit-workflows, delete-workflow, delete-workflows-bulk) don't go
  * through N8nMcpAdapter, so they never see N8N_MCP_URL/DEFAULT_URL automatically -- they
  * used to require an explicit `url` argument every call even though the instance is
- * already configured for the MCP side. Derives the REST base from N8N_MCP_URL (or the
- * same default the adapter uses) by stripping the known /mcp-server/http suffix; an
- * explicit `url` argument still wins, for the case where REST and MCP live on different
- * hosts. */
+ * already configured for the MCP side. Resolution order:
+ *   1. an explicit `url` argument on the call (per-call override)
+ *   2. N8N_INSTANCE_URL -- set this directly if you want the REST base configured
+ *      explicitly, the same way N8N_MCP_URL configures the MCP side, instead of relying
+ *      on point 3 to guess it right
+ *   3. N8N_MCP_URL (or the adapter's own default) with the known /mcp-server/http
+ *      suffix stripped -- a same-host fallback for the common case where REST and MCP
+ *      are served from the same instance */
 export function resolveInstanceUrl(explicitUrl) {
   if (explicitUrl) return explicitUrl.replace(/\/+$/, '');
+  if (process.env.N8N_INSTANCE_URL) return process.env.N8N_INSTANCE_URL.replace(/\/+$/, '');
   const mcpUrl = process.env.N8N_MCP_URL || N8N_MCP_URL_DEFAULT;
   const base = mcpUrl.endsWith(MCP_PATH_SUFFIX) ? mcpUrl.slice(0, -MCP_PATH_SUFFIX.length) : mcpUrl;
   return base.replace(/\/+$/, '');

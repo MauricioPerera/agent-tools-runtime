@@ -23,6 +23,16 @@ export N8N_MCP_URL="https://tu-instancia.n8n/mcp-server/http"  # opcional, defau
 # no pasar el token por variable de entorno cada vez.
 ```
 
+Para `audit-workflows`, `delete-workflow` y `delete-workflows-bulk` (las tres hablan la REST API,
+no el MCP — ver la sección de Skills), `url` es opcional y por default se deriva de `N8N_MCP_URL`
+sacándole el sufijo `/mcp-server/http`. Si preferís configurar la URL de la REST API de forma
+explícita en vez de depender de esa derivación (por ejemplo, si REST y MCP viven en hosts
+distintos), seteá:
+
+```bash
+export N8N_INSTANCE_URL="https://tu-instancia.n8n"  # opcional, tiene prioridad sobre la derivación de N8N_MCP_URL
+```
+
 ## Tools expuestas
 
 Con `prefix: "n8n"`, el runtime genera:
@@ -47,10 +57,11 @@ de n8n (`DELETE /api/v1/workflows/{id}`), fuera del MCP; por eso es una skill ap
 (`delete-workflow`, ver abajo), no una tool de `_call`.
 
 **`url` es opcional en `audit-workflows`, `delete-workflow` y `delete-workflows-bulk`**: estas tres
-hablan la REST API directo (no el MCP), así que no heredan `N8N_MCP_URL` del adapter automáticamente —
-pero si no se pasa `url`, lo derivan solas de `N8N_MCP_URL` (o su default), sacándole el sufijo
-`/mcp-server/http`. Pasar `url` explícito solo hace falta si tu REST API vive en un host distinto del
-MCP.
+hablan la REST API directo (no el MCP), así que no heredan `N8N_MCP_URL` del adapter automáticamente.
+Orden de resolución si no se pasa `url` en la llamada: `N8N_INSTANCE_URL` (si está seteada, gana) →
+si no, se deriva de `N8N_MCP_URL` (o su default) sacándole el sufijo `/mcp-server/http`. No hace
+falta pasar `url` en ninguna llamada salvo un caso puntual: REST y MCP en hosts distintos sin haber
+seteado `N8N_INSTANCE_URL`.
 
 ## Skills
 

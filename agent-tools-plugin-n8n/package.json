@@ -1,6 +1,6 @@
 {
   "name": "agent-tools-plugin-n8n",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "type": "module",
   "description": "n8n plugin for agent-tools-runtime: typed facade tools plus deterministic skills for data tables, workflow orchestration and read-only security/robustness auditing (insert-and-verify-datatable-row, data-table-crud, create-and-verify-workflow, audit-workflows).",
   "license": "MIT",

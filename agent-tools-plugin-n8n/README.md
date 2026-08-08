@@ -36,10 +36,15 @@ etc.) — el catálogo lo define n8n, este plugin solo lo reenvía tipado.
 
 **Este plugin corre con `requireConfirm: false`** (`plugin.json`, campo leído por el runtime desde
 `>=0.2.2`): a diferencia de los demás plugins de agent-tools-runtime, `agent_tools_n8n_call` ejecuta
-tools que mutan estado (`delete_workflow`, `create_workflow_from_code`, `publish_workflow`, etc.) sin
-exigir `confirm: true` — el argumento sigue existiendo en el schema por compatibilidad, pero no tiene
-efecto acá. No hay freno del lado del runtime contra una mutación o un delete accidental; queda en quien
-llama a la tool.
+tools que mutan estado (`create_workflow_from_code`, `update_workflow`, `archive_workflow`,
+`publish_workflow`, etc.) sin exigir `confirm: true` — el argumento sigue existiendo en el schema por
+compatibilidad, pero no tiene efecto acá. No hay freno del lado del runtime contra una mutación
+accidental; queda en quien llama a la tool.
+
+**Nota sobre borrado real de workflows**: el catálogo MCP de n8n no tiene un `delete_workflow` — lo más
+parecido es `archive_workflow`, que archiva, no borra. Un borrado permanente solo existe en la REST API
+de n8n (`DELETE /api/v1/workflows/{id}`), fuera del MCP; por eso es una skill aparte
+(`delete-workflow`, ver abajo), no una tool de `_call`.
 
 ## Skills
 
@@ -77,6 +82,12 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   export N8N_API_KEY="<api key REST de n8n, Settings → n8n API — distinta del token MCP>"
   # opcional: export N8N_AUDIT_PYTHON_BIN="/ruta/a/python3"  # default: python3 en PATH
   ```
+- **`delete-workflow({ url, workflowId })`** — borrado real y permanente de un workflow, vía
+  `DELETE /api/v1/workflows/{id}` de la REST API de n8n (no el MCP — ver la nota de arriba sobre por qué
+  no es una tool de `_call`). Requiere `N8N_API_KEY` en el entorno del proceso del runtime, igual que
+  `audit-workflows`. Sin confirmación propia — coherente con `requireConfirm: false` del resto del
+  plugin: si se llama, borra. Devuelve `{ isError: false, workflowId, deleted: <workflow borrado> }` en
+  éxito, o `{ isError: true, status, error }` si n8n rechaza el pedido (ej. id inexistente → 404).
 
 ## Licencia
 

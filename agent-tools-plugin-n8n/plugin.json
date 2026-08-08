@@ -23,9 +23,10 @@
         "./skills/insert-and-verify-datatable-row.mjs",
         "./skills/data-table-crud.mjs",
         "./skills/create-and-verify-workflow.mjs",
-        "./skills/audit-workflows.mjs"
+        "./skills/audit-workflows.mjs",
+        "./skills/delete-workflow.mjs"
       ],
-      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId. La skill audit-workflows requiere N8N_API_KEY (REST API key, distinta de este token MCP) en el entorno del proceso del runtime. AVISO: este plugin corre con requireConfirm:false -- a diferencia de los demás plugins de agent-tools-runtime, agent_tools_n8n_call ejecuta tools que mutan estado (delete_workflow, create_workflow_from_code, publish_workflow, etc.) sin exigir confirm:true. No hay freno del lado del runtime contra un delete accidental."
+      "discoverHint": "Siempre devuelve también el proyecto personal accesible (context.personalProject) para no tener que adivinar projectId. Las skills audit-workflows y delete-workflow requieren N8N_API_KEY (REST API key, distinta de este token MCP) en el entorno del proceso del runtime -- delete-workflow existe porque el catálogo MCP de n8n no tiene un delete_workflow real (solo archive_workflow, que archiva, no borra); un borrado permanente solo es posible vía la REST API. AVISO: este plugin corre con requireConfirm:false -- a diferencia de los demás plugins de agent-tools-runtime, agent_tools_n8n_call ejecuta tools que mutan estado (create_workflow_from_code, update_workflow, archive_workflow, publish_workflow, etc.) sin exigir confirm:true, y delete-workflow borra sin pedirlo tampoco. No hay freno del lado del runtime contra una mutación o un delete accidental."
     }
   }
 }

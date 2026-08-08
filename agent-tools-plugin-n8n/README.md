@@ -88,6 +88,17 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   `audit-workflows`. Sin confirmación propia — coherente con `requireConfirm: false` del resto del
   plugin: si se llama, borra. Devuelve `{ isError: false, workflowId, deleted: <workflow borrado> }` en
   éxito, o `{ isError: true, status, error }` si n8n rechaza el pedido (ej. id inexistente → 404).
+- **`delete-workflows-bulk({ url, active?, namePattern? })`** — borra en lote los workflows que
+  matchean el filtro. `active` (boolean) filtra por estado activo/inactivo; `namePattern` (string) hace
+  substring match case-insensitive contra el nombre; se puede pasar uno, el otro, o ambos (AND). **Exige
+  al menos uno de los dos** — sin filtro, error, no borra nada (no hay "borrar todo" implícito). Pagina
+  la lista completa antes de filtrar (`GET /api/v1/workflows` de n8n pagina de a 100 — un
+  `delete-workflow` uno-por-uno sobre solo la primera página se queda corto en cualquier instancia con
+  más de 100 workflows). Sin API de bulk-delete en n8n: por dentro sigue siendo un `DELETE` por
+  workflow. Devuelve `{ isError, totalWorkflows, matchedCount, deletedCount, failedCount, deleted: [...],
+  failed: [...] }` — `isError` solo es `true` si hubo matches y **ninguno** se pudo borrar; fallas
+  parciales quedan en `failed` sin marcar la llamada entera como error. Requiere `N8N_API_KEY`, sin
+  confirmación propia, misma política que `delete-workflow`.
 
 ## Licencia
 

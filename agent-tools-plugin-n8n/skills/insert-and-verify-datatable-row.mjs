@@ -112,11 +112,27 @@ export async function run(n8nAdapter, args) {
     return { isError: true, error: `publish_workflow failed: ${publishResult?.error || publishResult?.message || 'unknown error'}`, workflowId: realWorkflowId, attempts };
   }
 
+  // execute_workflow returns as soon as the execution is scheduled, not once it
+  // finishes -- a real run measured ~2.2s wall clock (InsertRow + GetRow). A single
+  // immediate get_execution call landed on status:"running" and never got confirmed:
+  // this polls until the execution leaves the non-terminal states, so the value check
+  // below runs against the finished result instead of a snapshot mid-flight.
+  const NON_TERMINAL_STATUSES = new Set(['running', 'new', 'waiting']);
+  async function pollExecutionUntilDone(executionId, { maxAttempts = 6, delayMs = 700 } = {}) {
+    let detail, status;
+    for (let i = 0; i < maxAttempts; i += 1) {
+      detail = await callTool(n8nAdapter, 'get_execution', { workflowId: realWorkflowId, executionId: String(executionId), includeData: true });
+      status = detail?.execution?.status;
+      if (!NON_TERMINAL_STATUSES.has(status)) break;
+      if (i < maxAttempts - 1) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    return { detail, status };
+  }
+
   async function executeAndCheck() {
     const exec = await callTool(n8nAdapter, 'execute_workflow', { workflowId: realWorkflowId, executionMode: 'manual' });
     if (exec?.isError || !exec?.executionId) return { ok: false, exec };
-    const detail = await callTool(n8nAdapter, 'get_execution', { workflowId: realWorkflowId, executionId: String(exec.executionId), includeData: true });
-    const status = detail?.execution?.status;
+    const { detail, status } = await pollExecutionUntilDone(exec.executionId);
     const confirmed = status === 'success' && JSON.stringify(detail).includes(String(value));
     return { ok: confirmed, exec, detail, status };
   }

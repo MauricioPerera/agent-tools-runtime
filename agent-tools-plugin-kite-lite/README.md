@@ -10,7 +10,15 @@ catálogo.
 
 ## Requisitos
 
-Necesitás el binario `kite-lite` compilado y accesible:
+Necesitás el binario `kite-lite` accesible. La forma más simple es instalarlo desde
+[crates.io](https://crates.io/crates/kite-lite):
+
+```bash
+cargo install kite-lite
+```
+
+Esto deja `kite-lite` (y `kite-lite-js`, su evaluador aislado) en el PATH de cargo
+(`~/.cargo/bin`). Alternativa, para trabajar sobre un checkout local del motor:
 
 ```bash
 git clone https://github.com/MauricioPerera/kite-lite.git
@@ -26,9 +34,12 @@ npm install agent-tools-plugin-kite-lite
 
 ## Configuración
 
+Si instalaste con `cargo install kite-lite`, el binario ya queda en el PATH de cargo y no
+hace falta ninguna variable. Si estás usando un build local (`target/release/kite-lite`) o
+un binario en otra ubicación, apuntá `KITE_LITE_BIN` ahí:
+
 ```bash
 export KITE_LITE_BIN="/ruta/a/kite-lite/target/release/kite-lite"
-# o dejalo en PATH como "kite-lite" y no hace falta la variable
 ```
 
 ## Tools expuestas

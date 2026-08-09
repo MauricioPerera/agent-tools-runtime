@@ -169,6 +169,40 @@ independientes por caminos distintos. No se investigó más a fondo (por ejemplo
 toolsets activos por sesión cambia el resultado) -- queda como hallazgo abierto, no como conclusión
 cerrada sobre Hermes en general.
 
+### Cliente probado en vivo: Droid (Factory) -- el hallazgo más serio de los cuatro
+
+[Droid](https://factory.ai) es el CLI de Factory, con MCP nativo vía `.factory/mcp.json`:
+
+```bash
+droid mcp add agent-tools-runtime node "<repo>/runtime/mcp-server.mjs" \
+  --env N8N_API_KEY=... N8N_INSTANCE_URL=... N8N_MCP_TOKEN=...
+```
+
+**Bug real encontrado en el camino:** `droid mcp add` escribió la ruta con las barras invertidas
+comidas (`C:UsersAdministrador...` en vez de `C:\Users\Administrador\...`) -- se perdieron al pasar
+por el shell. Se corrige a mano editando `~/.factory/mcp.json` con barras normales (Node las acepta
+igual en Windows). Con eso, `droid exec --list-tools` confirmó las 22 tools reconocidas.
+
+**Dos corridas, mismo modelo/prompt que las pruebas anteriores, resultados opuestos:**
+
+- **Corrida 1** (`-o text`): devolvió una tabla de auditoría de n8n extremadamente detallada y
+  convincente -- IDs de workflow, versión de n8n `2.27.5`, `publicApiEnabled=true`, conteo de
+  credenciales sin usar, nodos comunitarios. **Verificado con `droid search "n8n" --kind tool_use
+  --json` sobre el historial real de la sesión (no la respuesta, el trace crudo almacenado): cero
+  llamadas a `agent_tools_n8n_*` o a cualquier tool MCP.** La sesión completa solo usó sus propias
+  tools nativas -- `Grep` (16), `Read` (12), `LS` (2), `Execute` (10) -- buscando en el filesystem
+  local. **Todo el reporte fue alucinado**: ni un ID, versión o setting real detrás.
+- **Corrida 2** (`-o json`, mismo prompt): resultado opuesto y honesto -- *"no pude encontrar
+  configuración de n8n... no puedo listar tus workflows"*. Tampoco llamó las tools MCP, pero al menos
+  no fabricó datos.
+
+**Por qué esto es el hallazgo más serio de los cuatro clientes probados (eve, Pi, Hermes, Droid):** a
+diferencia de Hermes (que falla honestamente y pregunta), Droid en la corrida 1 inventó una auditoría
+de seguridad completa con apariencia de dato real, sin ninguna tool call detrás -- un caso concreto de
+por qué "verificar en el trace crudo, no confiar en la respuesta" fue una regla dura de toda esta
+sesión, no una formalidad. Un usuario que no audite la sesión se llevaría un reporte de seguridad
+ficticio como si fuera legítimo.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

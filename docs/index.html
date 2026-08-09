@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Tools Runtime — connect on demand, not all at once</title>
+<meta name="description" content="A small, persistent runtime that lets AI agents discover and connect to real services on demand, instead of loading every tool's manual into every conversation." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%2315120e'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23e8a33d' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23e8a33d'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<div class="bus" aria-hidden="true"><div class="bus__pulse"></div></div>
+
+<header class="site-header">
+  <div class="wrap site-header__row">
+    <a class="brand" href="#top">
+      <svg class="brand__jack" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" stroke="var(--amber)" stroke-width="2"/>
+        <circle cx="12" cy="12" r="2.4" fill="var(--amber)"/>
+      </svg>
+      Agent Tools Runtime
+    </a>
+    <div class="header-controls">
+      <div class="lang-switch" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="es" aria-pressed="false">ES</button>
+        <button type="button" data-lang="pt" aria-pressed="false">PT</button>
+      </div>
+      <button type="button" class="theme-toggle" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============================== HERO ============================== -->
+  <section class="hero wrap">
+    <div class="hero__grid">
+      <div>
+        <span class="eyebrow" data-i18n="hero.eyebrow">Agent Tools Runtime</span>
+        <h1 data-i18n="hero.h1">Give your agent a thousand tools.<br><em>Load none of them until it asks.</em></h1>
+        <p class="hero__sub" data-i18n="hero.sub">A small, persistent runtime that lets AI agents discover and connect to real services on demand.</p>
+        <div class="hero__ctas">
+          <a class="btn btn--primary" href="https://github.com/MauricioPerera/agent-tools-runtime" data-i18n="hero.cta.github">View on GitHub</a>
+          <a class="btn btn--ghost" href="https://www.npmjs.com/package/@rckflr/agent-tools-runtime" data-i18n="hero.cta.npm">npm install</a>
+        </div>
+      </div>
+      <div class="hero__stage">
+        <canvas id="patchbay" role="img" aria-label="Animated diagram: a single connection is made on demand between the agent and one module at a time, then released"></canvas>
+        <span class="hero__stage-label" data-i18n="hero.stage.label">live patch simulation</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= PROBLEM ============================= -->
+  <section class="module wrap reveal rack-corners" data-bus-anchor>
+    <div class="module__head">
+      <span class="eyebrow" data-i18n="problem.eyebrow">The problem</span>
+      <h2 data-i18n="problem.h2">Every tool, every time — whether you need it or not</h2>
+      <p class="module__lede" data-i18n="problem.lede">The usual way to connect an agent to a service is to hand it the full manual before every question.</p>
+    </div>
+    <div class="compare">
+      <div class="compare__card compare__card--bad">
+        <h3 data-i18n="problem.bad.title">Wired permanently</h3>
+        <div class="stack" aria-hidden="true">
+          <div class="stack__row" style="width:100%"></div>
+          <div class="stack__row" style="width:96%"></div>
+          <div class="stack__row" style="width:100%"></div>
+          <div class="stack__row" style="width:88%"></div>
+          <div class="stack__row" style="width:100%"></div>
+          <div class="stack__row" style="width:92%"></div>
+          <div class="stack__row" style="width:100%"></div>
+        </div>
+        <p class="compare__caption" data-i18n="problem.bad.caption">Every tool's full instructions, loaded into every conversation, used or not.</p>
+      </div>
+      <div class="compare__card compare__card--good">
+        <h3 data-i18n="problem.good.title">Connected on demand</h3>
+        <div class="stack" aria-hidden="true">
+          <div class="stack__row" style="width:34%"></div>
+          <div class="stack__row" style="width:22%"></div>
+          <div class="stack__row" style="width:28%"></div>
+        </div>
+        <p class="compare__caption" data-i18n="problem.good.caption">A short menu first. Full instructions arrive only for what actually gets used.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== HOW IT WORKS =========================== -->
+  <section class="module wrap reveal rack-corners" data-bus-anchor>
+    <div class="module__head">
+      <span class="eyebrow" data-i18n="how.eyebrow">How it works</span>
+      <h2 data-i18n="how.h2">Ask first. Load exactly what answers.</h2>
+      <p class="module__lede" data-i18n="how.lede">Every plugin exposes the same three jacks, no matter what it connects to underneath.</p>
+    </div>
+    <ol class="steps" style="list-style:none; padding:0;">
+      <li class="step">
+        <span class="step__num">01</span>
+        <div><h3 data-i18n="how.step1.title">Say what you need</h3><p data-i18n="how.step1.body">The agent asks a small, cheap question.</p></div>
+      </li>
+      <li class="step">
+        <span class="step__num">02</span>
+        <div><h3 data-i18n="how.step2.title">Get a short list back</h3><p data-i18n="how.step2.body">The runtime answers with the handful of things that matter.</p></div>
+      </li>
+      <li class="step">
+        <span class="step__num">03</span>
+        <div><h3 data-i18n="how.step3.title">Pick the exact one</h3><p data-i18n="how.step3.body">The agent chooses the capability that actually fits.</p></div>
+      </li>
+      <li class="step">
+        <span class="step__num">04</span>
+        <div><h3 data-i18n="how.step4.title">Only then, load it</h3><p data-i18n="how.step4.body">The full instructions for that one thing arrive.</p></div>
+      </li>
+    </ol>
+    <p class="fact-strip" data-i18n="how.fact">Every connected service gets the same three doors in.</p>
+  </section>
+
+  <!-- ============================ PLUGIN RACK ============================ -->
+  <section class="module wrap reveal rack-corners" data-bus-anchor>
+    <div class="module__head">
+      <span class="eyebrow" data-i18n="rack.eyebrow">The plugin rack</span>
+      <h2 data-i18n="rack.h2">Eight real connections, four ways of talking</h2>
+      <p class="module__lede" data-i18n="rack.lede">Every module below runs against the real service it connects to — not a mockup.</p>
+    </div>
+    <div class="rack">
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>n8n</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.n8n.desc">Build, run, and audit your n8n automations.</p>
+        <div class="tag-row"><span class="tag tag--mcp">MCP · HTTP</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>GitHub</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.github.desc">Repos, issues, and commits.</p>
+        <div class="tag-row"><span class="tag tag--rest">REST</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>GitHub CLI</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.ghcli.desc">The same GitHub data, through the gh CLI.</p>
+        <div class="tag-row"><span class="tag tag--cli">CLI</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>PocketBase</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.pocketbase.desc">Talks to a self-hosted PocketBase backend.</p>
+        <div class="tag-row"><span class="tag tag--rest">REST</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>Tasks</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.tasks.desc">A minimal to-do list API.</p>
+        <div class="tag-row"><span class="tag tag--rest">REST</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>Kite-lite</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.kitelite.desc">Drives a lightweight browser engine.</p>
+        <div class="tag-row"><span class="tag tag--mcp">MCP · stdio</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>ccdd-gate</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.ccdd.desc">Deterministic Python code-quality gates.</p>
+        <div class="tag-row"><span class="tag tag--mcp">MCP · stdio</span></div>
+      </article>
+      <article class="mod-card">
+        <div class="mod-card__top"><h3>Ollama</h3><span class="mod-card__led" aria-hidden="true"></span></div>
+        <p data-i18n="plugin.ollama.desc">Talks to language models, local or cloud.</p>
+        <div class="tag-row"><span class="tag tag--rest">REST</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============================= BUILDERS ============================= -->
+  <section class="module wrap reveal rack-corners" data-bus-anchor>
+    <div class="builders">
+      <div>
+        <span class="eyebrow" data-i18n="builders.eyebrow">For builders</span>
+        <h2 style="font-size:clamp(1.7rem,2.6vw,2.2rem); margin-top:0.6rem;" data-i18n="builders.h2">Already have an API? You don't need a server to make it agent-ready.</h2>
+        <p class="module__lede" data-i18n="builders.lede">A plugin is a folder the runtime loads directly.</p>
+        <ul class="benefit-list">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span><strong data-i18n="builders.benefit1.title">Zero infrastructure.</strong> <span data-i18n="builders.benefit1.body">Ship a package that wraps the API you already have.</span></span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span><strong data-i18n="builders.benefit2.title">Discoverability included.</strong> <span data-i18n="builders.benefit2.body">Confirmation on risky calls, error hints, search.</span></span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span><strong data-i18n="builders.benefit3.title">Your own shortcuts.</strong> <span data-i18n="builders.benefit3.body">Bundle a multi-step recipe into one reliable call.</span></span>
+          </li>
+        </ul>
+        <div style="margin-top:1.6rem;">
+          <a class="btn btn--ghost" href="https://github.com/MauricioPerera/agent-tools-runtime#qu%C3%A9-es-un-plugin" data-i18n="builders.cta">Read the plugin guide</a>
+        </div>
+      </div>
+      <div class="wire-card">
+        <div class="wire-card__dot" aria-hidden="true"></div>
+        <div class="wire-card__title" data-i18n="builders.wirecard.title">connections/agent-tools-runtime.ts</div>
+        <pre>import { defineMcpClientConnection } from "eve/connections";
+
+export default defineMcpClientConnection({
+  url: "http://127.0.0.1:8321/mcp",
+  description: "agent-tools-runtime: typed facades
+    over Ollama, ccdd-gate, n8n, GitHub, PocketBase.",
+});</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ QUICK START ============================ -->
+  <section class="module wrap reveal rack-corners" data-bus-anchor>
+    <div class="module__head">
+      <span class="eyebrow" data-i18n="quickstart.eyebrow">Quick start</span>
+      <h2 data-i18n="quickstart.h2">Running in one command</h2>
+      <p class="module__lede" data-i18n="quickstart.lede">Install the runtime, point it at a plugin, and your agent has a new, small menu to ask from.</p>
+    </div>
+    <div class="quickstart-panel">
+      <div class="quickstart-panel__bar"><span></span> mcp-server.mjs</div>
+      <pre><span class="c"># stdio (default) -- for Claude Code, Claude Desktop, pool, ollama...</span>
+<span class="g">npm</span> install <span class="a">@rckflr/agent-tools-runtime</span>
+<span class="g">npm</span> run mcp
+
+<span class="c"># Streamable HTTP -- for clients that only speak HTTP/SSE, e.g. eve</span>
+<span class="g">npm</span> run mcp:http</pre>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer wrap">
+  <div class="site-footer__row">
+    <p class="site-footer__meta" data-i18n="footer.tagline">A small, persistent runtime for agents that would rather ask than guess.</p>
+    <nav>
+      <a href="https://github.com/MauricioPerera/agent-tools-runtime">GitHub</a>
+      <a href="https://www.npmjs.com/package/@rckflr/agent-tools-runtime">npm</a>
+      <a href="https://github.com/MauricioPerera/agent-tools-runtime/blob/main/LICENSE" data-i18n="footer.license">MIT License</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="assets/i18n.js"></script>
+<script src="assets/patchbay.js"></script>
+<script src="assets/main.js"></script>
+</body>
+</html>

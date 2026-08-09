@@ -120,7 +120,7 @@ parado.
 
 ### Estado real de esto hoy
 
-Seis plugins reales, elegidos para cubrir formas de transporte distintas (no todos el mismo tipo de
+Siete plugins reales, elegidos para cubrir formas de transporte distintas (no todos el mismo tipo de
 integración) y medir si el contrato de adapter (`listTools`/`search`/`describe`/`call`) generaliza:
 
 | Plugin | Prefix | Transporte | Qué valida |
@@ -131,6 +131,7 @@ integración) y medir si el contrato de adapter (`listTools`/`search`/`describe`
 | `agent-tools-plugin-tasks` | `tasks` | REST (self-hosted, API key) | Mismo caso que github pero sin OAuth ni proveedor externo |
 | `agent-tools-plugin-gh-cli` | `ghcli` | CLI (`execFile` sobre un binario ya instalado) | Ni HTTP ni MCP — exit code + stdout/stderr como superficie de error. Mismo dominio que `github` a propósito, para aislar la variable de transporte |
 | `agent-tools-plugin-pocketbase` | `pocketbase` | REST (self-hosted, auth dinámica) | Sin API key estática — el adapter hace login (`auth-with-password`) y cachea el token, primer caso de autenticación que el propio adapter tiene que gestionar en vez de solo adjuntar |
+| `agent-tools-plugin-ccdd-gate` | `ccdd` | MCP sobre stdio (backend en dos partes: `python <script>`, no un binario único como kite-lite) | Mismo caso que kite-lite pero contra un backend real de terceros (ccdd-complexity, github.com/MauricioPerera/KDD) — 23 tools reales, sin catálogo inventado. Su skill `quality-gate-check` compone 5 llamadas AST inline en vez de `run_rules_gate`: ese tool resultó leer su `rules.yaml` relativo al cwd del proceso Python long-lived, no al `project_root` que recibe como argumento — no hay forma de satisfacerlo desde un tempdir por-llamada, encontrado probando el plugin en vivo |
 
 El formato del manifest y el loader dinámico ya están probados con varios plugins reales cargando a la
 vez sin tocar `mcp-server.mjs` — agregar uno nuevo es crear el directorio, no editar el runtime.

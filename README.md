@@ -133,6 +133,42 @@ la corrida anterior con el mismo setup exacto, este resultado negativo queda ais
 límite de capacidad del modelo, no de la integración -- mismo patrón que el resto de esta sección de
 discoverabilidad: modelos grandes usan esta capa sin fricción, modelos chicos ni la intentan.
 
+### Cliente probado en vivo: Hermes Agent -- conecta, pero el modelo no encontró las tools
+
+[Hermes Agent](https://hermes-agent.ai) habla MCP nativo, cliente y servidor, sin adapters de
+terceros. Conectarlo es un solo comando:
+
+```bash
+hermes mcp add agent-tools-runtime --command node --args "<repo>/runtime/mcp-server.mjs" \
+  --env N8N_API_KEY=... N8N_INSTANCE_URL=... N8N_MCP_TOKEN=...
+```
+
+`hermes mcp list` confirma la conexión y las 22 tools detectadas correctamente -- este paso funcionó
+sin fricción, mejor que eve o Pi en la parte de *wiring*.
+
+**El problema aparece un paso después.** Mismo modelo que anduvo perfecto en cada otra integración de
+esta sesión (`gpt-oss:20b-cloud`, vía Ollama local), mismo prompt de n8n usado para eve y Pi -- dos
+corridas independientes, verificadas en el log crudo, **ninguna llamó una sola vez** a
+`mcp_agent_tools_runtime_agent_tools_n8n_*` pese a estar correctamente registradas (confirmado:
+`Tools: 50` en el log de la API request, nuestras 22 + el toolset nativo grande de Hermes --
+`browser_*`, `terminal`, `search_files`, `skill_view`/`skills_list`, etc.):
+
+- **Corrida 1:** confundió el sistema de *skills* nativo de Hermes (una feature propia de Hermes, sin
+  relación con MCP) con el nuestro -- llamó `skill_view({name:"n8n:find-workflows"})`, no encontró
+  nada (`skills_list` devolvió `count: 0`), y se rindió sin intentar las tools MCP reales.
+- **Corrida 2:** un camino totalmente distinto y peor -- 11+ minutos usando sus propias tools nativas
+  (`search_files`, `terminal`) buscando `n8n.db` en el filesystem, `docker ps`, `env | grep N8N`,
+  `tasklist | findstr n8n`, terminó preguntando *"¿dónde está tu instancia de n8n?"* sin respuesta
+  real.
+
+**Lectura honesta:** el *wiring* MCP de Hermes funciona bien -- es la conexión más simple de las tres
+probadas (eve, Pi, Hermes). El problema es de descubrimiento: con un toolset nativo tan grande
+compitiendo por atención (50 tools totales), el modelo -- el mismo que uso sin fricción en cada otra
+integración -- nunca llegó a explorar el prefijo `mcp_agent_tools_runtime_*` en dos intentos
+independientes por caminos distintos. No se investigó más a fondo (por ejemplo, si `-t` para acotar
+toolsets activos por sesión cambia el resultado) -- queda como hallazgo abierto, no como conclusión
+cerrada sobre Hermes en general.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

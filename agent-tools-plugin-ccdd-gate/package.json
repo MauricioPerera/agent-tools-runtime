@@ -1,0 +1,35 @@
+{
+  "name": "agent-tools-plugin-ccdd-gate",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ccdd-gate plugin for agent-tools-runtime: stdio MCP client for the ccdd-complexity server (deterministic AST-based Python code-quality/governance gates from the KDD/CCDD methodology) -- no invented tool catalog, proxies tools/list and tools/call as-is.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "keywords": [
+    "agent-tools-runtime",
+    "mcp",
+    "ccdd",
+    "kdd",
+    "code-quality",
+    "agent-tools-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "agent-tools-plugin-ccdd-gate"
+  },
+  "peerDependencies": {
+    "@rckflr/agent-tools-runtime": ">=0.2.3"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "plugin.json",
+    "adapter.mjs"
+  ]
+}

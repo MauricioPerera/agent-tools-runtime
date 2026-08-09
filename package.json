@@ -29,6 +29,7 @@
   },
   "scripts": {
     "probe": "node scripts/runtime_probe.mjs --json",
+    "validate-plugins": "node scripts/validate-plugins.mjs",
     "serve": "node runtime/agent-tools-runtime.mjs serve",
     "mcp": "node runtime/mcp-server.mjs",
     "test": "node --test test/*.test.mjs"

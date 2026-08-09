@@ -152,7 +152,7 @@ function ancestorNodeModulesDirs(startDir) {
  *      para poder "soltar" un plugin sin que viva dentro del repo ni de node_modules).
  * Un plugin que falla al cargar se loguea a stderr y se saltea -- no tira abajo
  * el resto de los plugins que sí cargaron bien. */
-async function discoverPlugins() {
+export async function discoverPlugins() {
   const repoRoot = path.join(__dirname, '..');
   const searchRoots = [
     repoRoot,
@@ -289,19 +289,28 @@ function searchSkills(skills, query, limit) {
  * typo, skill renombrada) no tumba el arranque -- se loguea a stderr, mismo
  * criterio que un plugin que falla al cargar, porque es metadata de
  * discoverabilidad, no una dependencia funcional. */
-function validateRelatedLinks(plugins) {
+// Devuelve la lista de problemas en vez de solo loguearlos -- quien llama
+// decide qué hacer con eso: main() los loguea a stderr sin fallar el arranque
+// (un related roto no es motivo para no levantar el server), pero
+// scripts/validate-plugins.mjs (gate de CI, ver package.json/ci.yml) los usa
+// para decidir el exit code. Mismo movimiento que validate-okf.py de KDD:
+// convertir un chequeo que antes solo se veía si alguien miraba el log en un
+// gate que rompe el build.
+export function validateRelatedLinks(plugins) {
   const byPrefix = new Map(plugins.map((p) => [p.prefix, p]));
+  const problems = [];
   for (const plugin of plugins) {
     for (const [skillName, mod] of Object.entries(plugin.skills)) {
       for (const rel of mod.meta?.related || []) {
         const [targetPrefix, targetSkill] = String(rel.target || '').split(':');
         const targetPlugin = byPrefix.get(targetPrefix);
         if (!targetPlugin || !targetPlugin.skills[targetSkill]) {
-          console.error(`[related] ${plugin.prefix}:${skillName} -> '${rel.target}' no resuelve (¿plugin/skill borrado o renombrado?)`);
+          problems.push(`${plugin.prefix}:${skillName} -> '${rel.target}' no resuelve (¿plugin/skill borrado o renombrado?)`);
         }
       }
     }
   }
+  return problems;
 }
 
 async function handleDiscover(plugin, args) {
@@ -416,7 +425,7 @@ function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, 
 
 async function main() {
   const plugins = await discoverPlugins();
-  validateRelatedLinks(plugins);
+  for (const problem of validateRelatedLinks(plugins)) console.error(`[related] ${problem}`);
   const help = buildHelp(plugins);
   // toolName -> { plugin, kind: 'discover'|'call'|'run_skill' }
   const routes = new Map();
@@ -523,4 +532,10 @@ async function main() {
   }
 }
 
-main();
+// Guard de entrypoint: sin esto, importar este módulo (ver
+// scripts/validate-plugins.mjs, que reusa discoverPlugins/validateRelatedLinks
+// sin querer levantar el server) dispara main() igual, que abre un
+// readline sobre stdin y cuelga esperando líneas JSON-RPC que nunca llegan.
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main();
+}

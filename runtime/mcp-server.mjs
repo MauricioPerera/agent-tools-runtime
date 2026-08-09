@@ -251,10 +251,21 @@ function buildFacadeToolsForPlugin(plugin) {
  * necesita buscar algo puntual -- sumar skills ahi (solo cuando hay query,
  * cero costo si no se pregunta) es la misma solucion que search_workflows /
  * find-workflows le da a las tools crudas, aplicada a las skills. */
+// Reporta honesto si el corte por `limit` dejó afuera matches reales, en vez
+// de descartarlos en silencio -- mismo principio que assemble-context.py de
+// KDD ("el reporte lista selected/cut/omitted_nodes, nunca sobre-promete").
+// Alcance a propósito: solo cubre skills (todo el scoring vive acá, en
+// memoria, antes del slice). El catálogo de tools crudas de cada adapter
+// tiene el mismo corte silencioso (ver handleDiscover, listTools().slice(0,15)
+// y adapter.search(query, 8)) pero honestearlo requeriría cambiar el contrato
+// de los 6 adapters para que devuelvan el total pre-slice -- sin evidencia de
+// que ese corte specific alguna vez ocultó algo real (a diferencia del bug de
+// paginación de list_issues, que sí se vio en vivo), no se justifica ese
+// cambio más grande hoy.
 function searchSkills(skills, query, limit) {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!terms.length) return [];
-  return Object.entries(skills)
+  if (!terms.length) return { matches: [], truncated: false, totalAvailable: 0 };
+  const scored = Object.entries(skills)
     .map(([name, mod]) => {
       const meta = mod.meta || {};
       const haystack = `${name} ${meta.description || ''} ${meta.args || ''}`.toLowerCase();
@@ -267,9 +278,12 @@ function searchSkills(skills, query, limit) {
       return { ...entry, score };
     })
     .filter((m) => m.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ score, ...rest }) => rest);
+    .sort((a, b) => b.score - a.score);
+  return {
+    matches: scored.slice(0, limit).map(({ score, ...rest }) => rest),
+    truncated: scored.length > limit,
+    totalAvailable: scored.length,
+  };
 }
 
 /** Un salto de grafo, no un motor de traversal: `meta.related` en una skill
@@ -316,11 +330,13 @@ export function validateRelatedLinks(plugins) {
 async function handleDiscover(plugin, args) {
   const query = typeof args?.query === 'string' ? args.query.trim() : '';
   let matches;
+  let skillsTruncatedInfo;
   try {
     if (query) {
       const searchResult = await plugin.adapter.search(query, 8);
-      const skillMatches = searchSkills(plugin.skills, query, 5);
-      matches = [...skillMatches, ...searchResult.matches];
+      const skills = searchSkills(plugin.skills, query, 5);
+      matches = [...skills.matches, ...searchResult.matches];
+      if (skills.truncated) skillsTruncatedInfo = { skillsShown: skills.matches.length, skillsAvailable: skills.totalAvailable };
     } else {
       const listed = await plugin.adapter.listTools();
       matches = (listed.tools || []).slice(0, 15).map((t) => ({ name: t.name, description: t.description || '' }));
@@ -329,7 +345,12 @@ async function handleDiscover(plugin, args) {
     return jsonContent({ isError: true, error: e.message });
   }
   const context = plugin.adapter.discoverContext ? await plugin.adapter.discoverContext() : undefined;
-  return jsonContent({ query: query || null, matches, ...(context ? { context } : {}) });
+  return jsonContent({
+    query: query || null,
+    matches,
+    ...(skillsTruncatedInfo ? { skillsTruncated: skillsTruncatedInfo } : {}),
+    ...(context ? { context } : {}),
+  });
 }
 
 async function handleCall(plugin, args) {

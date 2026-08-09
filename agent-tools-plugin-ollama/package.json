@@ -1,0 +1,34 @@
+{
+  "name": "agent-tools-plugin-ollama",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ollama plugin for agent-tools-runtime: typed facade over Ollama's local REST API (list/pull models, single-shot generate/chat completions). No MCP, no auth by default -- self-hosted local.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "keywords": [
+    "agent-tools-runtime",
+    "rest-api",
+    "ollama",
+    "llm",
+    "agent-tools-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "agent-tools-plugin-ollama"
+  },
+  "peerDependencies": {
+    "@rckflr/agent-tools-runtime": ">=0.2.3"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "plugin.json",
+    "adapter.mjs"
+  ]
+}

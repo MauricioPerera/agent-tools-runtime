@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ollama",
+  "version": "0.1.0",
+  "description": "agent-tools-runtime plugin for Ollama's local REST API: list/pull models and run single-shot generate/chat completions against a local or remote Ollama server.",
+  "license": "MIT",
+  "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
+  "keywords": ["agent-tools-runtime", "rest-api", "ollama", "llm"],
+  "extensions": {
+    "dev.agent-tools-runtime": {
+      "prefix": "ollama",
+      "adapter": "./adapter.mjs",
+      "adapterExport": "OllamaAdapter",
+      "readonlyTools": ["list_models", "list_running_models"],
+      "skills": [],
+      "discoverHint": "Requiere un server de Ollama accesible (OLLAMA_URL, default http://localhost:11434). Sin auth por default -- self-hosted local. generate/chat siempre corren con stream:false (respuesta completa de una, no streaming) y requieren confirm: true al costar cómputo/tiempo real, igual que pull_model al bajar un modelo a disco."
+    }
+  }
+}

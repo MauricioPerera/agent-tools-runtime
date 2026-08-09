@@ -136,6 +136,43 @@ integración) y medir si el contrato de adapter (`listTools`/`search`/`describe`
 El formato del manifest y el loader dinámico ya están probados con varios plugins reales cargando a la
 vez sin tocar `mcp-server.mjs` — agregar uno nuevo es crear el directorio, no editar el runtime.
 
+### Por qué construir un plugin (para quien expone la API/servicio)
+
+Punto a aclarar primero porque es fácil malinterpretarlo: un plugin **no evita MCP**. Hacia el agente,
+agent-tools-runtime sigue hablando MCP tal cual (stdio, JSON-RPC) — no hay protocolo alternativo ahí, y
+los clientes que importan (Claude Desktop, Claude Code, cualquier agente) existen porque hablan MCP. Lo
+que un plugin evita es **alojar y mantener vos ese proceso MCP-facing**: en vez de desplegar tu propio
+server que hable MCP con el agente, tu plugin se monta sobre un runtime que el host ya tiene corriendo —
+el proceso MCP lo aloja el host, no vos.
+
+Con eso claro, las ventajas concretas de empaquetar como plugin en vez de (o adicionalmente a) desplegar
+tu propio server MCP:
+
+- **Cero infra propia**: el plugin es un paquete npm que envuelve la API que ya tenés (REST, CLI, lo que
+  sea) — no hay proceso nuevo que alojar, escalar ni mantener en pie. Ver `github`/`tasks`/`pocketbase`
+  en la tabla de arriba: ninguno de los tres tiene un MCP propio, y aun así son alcanzables por un agente
+  sin que su proveedor haya construido un server MCP desde cero.
+- **Heredás gratis** lo que ya construyó el runtime: confirm-gating en mutaciones, error-hints,
+  discoverabilidad (`discover`/`meta`/`related`, ver sección siguiente) — construir eso dentro de un
+  server MCP propio es trabajo tuyo; acá viene incluido.
+- **Skills = tu receta determinista para tu dominio**, no que cada agente/modelo reconstruya la
+  orquestación a mano cada vez — reduce la tasa de error específicamente para tus casos de uso (ver
+  benchmark de skills vs. tools sueltas más abajo).
+- **Credenciales quedan del lado del host** vía env vars (o auth dinámica, ver `pocketbase`) — no hace
+  falta correr un broker de auth expuesto a internet.
+- **Distribución por npm**, versionado semver estándar, sin story de deployment propio.
+
+La contra honesta: un plugin solo sirve dentro de un host que tenga agent-tools-runtime cargado — no es
+un MCP genérico que hable con cualquier cliente. Un server MCP propio tiene alcance universal, pero el
+costo entero de infra y discoverabilidad es tuyo.
+
+**Y no es una decisión excluyente.** `agent-tools-plugin-n8n` es el caso probado de combinar ambos: n8n
+ya tiene su propio server MCP real, y el adapter de este plugin lo proxea tal cual para la mayoría de las
+tools — pero cuando ese MCP no cubre algo bien (operaciones de Data Table, ciertos flujos de auditoría),
+las skills del plugin lo tapan con llamadas deterministas propias, sin que el agente vea la costura. Si
+ya tenés un MCP que no cubre el 100% de lo que tu API puede hacer, un plugin te deja combinar "lo que el
+MCP ya expone" con "lo que le falta" detrás de una sola fachada, en vez de elegir entre uno de los dos.
+
 ## Arquitectura de discoverabilidad
 
 Esto no es un sustituto de MCP — hacia el agente sigue hablando el protocolo tal cual, y varios adapters

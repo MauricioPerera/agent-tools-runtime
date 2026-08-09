@@ -7,7 +7,25 @@
 // (llamadas de varios minutos, requeriria semantica async que el runtime no
 // tiene hoy, riesgo de recursion si el agente delegado reusa las mismas MCP
 // tools) y se evaluo por separado antes de arrancar este plugin.
-const API_BASE = process.env.OLLAMA_URL || 'http://localhost:11434';
+//
+// Ollama Cloud (https://docs.ollama.com/cloud) expone los mismos endpoints
+// (/api/tags, /api/chat, /api/generate) con el mismo shape de
+// request/response -- solo cambia el host (https://ollama.com en vez de
+// localhost) y que exige `Authorization: Bearer <key>`. Verificado en vivo
+// contra la API real. Precedencia de resolucion de baseUrl:
+//   1. OLLAMA_URL explicito -- siempre gana, sea cual sea OLLAMA_API_KEY.
+//   2. OLLAMA_API_KEY sin OLLAMA_URL -- default a Ollama Cloud, para poder
+//      usar el plugin sin depender de tener Ollama instalado localmente.
+//   3. Ninguno de los dos -- default de siempre, localhost.
+const DEFAULT_LOCAL_URL = 'http://localhost:11434';
+const DEFAULT_CLOUD_URL = 'https://ollama.com';
+
+function resolveBaseUrl({ baseUrl, apiKey }) {
+  if (baseUrl) return baseUrl;
+  if (process.env.OLLAMA_URL) return process.env.OLLAMA_URL;
+  if (apiKey || process.env.OLLAMA_API_KEY) return DEFAULT_CLOUD_URL;
+  return DEFAULT_LOCAL_URL;
+}
 
 const TOOLS = [
   {
@@ -64,14 +82,17 @@ function textContent(payload) {
 }
 
 export class OllamaAdapter {
-  constructor({ baseUrl = API_BASE } = {}) {
-    this.baseUrl = baseUrl;
+  constructor({ baseUrl, apiKey = process.env.OLLAMA_API_KEY } = {}) {
+    this.apiKey = apiKey;
+    this.baseUrl = resolveBaseUrl({ baseUrl, apiKey });
   }
 
   async request(method, path, body) {
+    const headers = body ? { 'Content-Type': 'application/json' } : {};
+    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await response.text();

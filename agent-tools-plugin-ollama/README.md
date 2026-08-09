@@ -25,11 +25,28 @@ Se instala al lado de `@rckflr/agent-tools-runtime`. Si `discoverPlugins()` esca
 
 ## Configuración
 
+**Local (default):**
+
 ```bash
 export OLLAMA_URL="http://localhost:11434"   # default si se omite
 ```
 
-Sin auth por default — Ollama local no la requiere.
+Sin auth — Ollama local no la requiere.
+
+**Ollama Cloud** ([docs.ollama.com/cloud](https://docs.ollama.com/cloud)) — para no depender de tener
+Ollama instalado localmente:
+
+```bash
+export OLLAMA_API_KEY="tu-api-key-de-ollama.com"
+```
+
+Si `OLLAMA_API_KEY` está seteada y `OLLAMA_URL` **no** lo está, el adapter apunta automáticamente a
+`https://ollama.com` en vez de `localhost` y manda `Authorization: Bearer <key>` en cada request. Mismos
+endpoints, mismo shape de request/response que local (verificado en vivo) — el catálogo de modelos
+disponibles cambia (los de Ollama Cloud, no los que tengas descargados localmente).
+
+`OLLAMA_URL` explícito siempre gana, tenga o no `OLLAMA_API_KEY` seteada — para casos como un proxy
+propio delante de un server local con su propia auth.
 
 ## Tools expuestas
 

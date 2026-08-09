@@ -70,7 +70,7 @@ Con `prefix: "ccdd"`, el runtime genera:
 
 - `agent_tools_ccdd_discover({ query? })`
 - `agent_tools_ccdd_call({ toolName, arguments, confirm? })`
-- `agent_tools_ccdd_run_skill({ skill, arguments })` (sin skills todavia -- ver abajo)
+- `agent_tools_ccdd_run_skill({ skill, arguments })` (ver Skills abajo)
 
 El catalogo real de `toolName` lo define el server ccdd-complexity, no este plugin (se descubre via
 `agent_tools_ccdd_discover()`). A la fecha, 23 tools agrupables en:
@@ -94,6 +94,21 @@ El catalogo real de `toolName` lo define el server ccdd-complexity, no este plug
   skill gestiona un tempdir efímero (se borra al terminar) y devuelve un veredicto combinado
   (`PASS`/`FAIL`/`INVALID`) con las métricas de complejidad y las violaciones de política, sin opinión
   de LLM encima -- son los dos gates deterministas del backend tal cual.
+
+- **`start-ephemeral-agent({ task_path })`** + **`ephemeral-agent-status({ jobId })`** -- `run_ephemeral_agent`
+  puede tardar varios minutos (hasta 3 iteraciones de un modelo chico escribiendo código contra el
+  gate), así que llamarlo directo bloquea al agente que espera. `start-ephemeral-agent` dispara el
+  request SIN esperarlo y devuelve `{jobId}` al toque; `ephemeral-agent-status` consulta después:
+  `running` (todavía trabajando, no está muerto), `done` (con el `status`/`iterations`/`gate_output`
+  que normalmente devuelve `run_ephemeral_agent`) o `error`. Mismo patrón que
+  `start_generate`/`start_chat` + `job_status` de `agent-tools-plugin-ollama` -- el tracking vive en
+  memoria del proceso runtime (un `Map` compartido entre las dos skills, no una tool nueva del
+  backend), se pierde si el server MCP se reinicia. Sin `cancel_job` en esta primera versión.
+
+  **Verificado en vivo:** mismo contrato `add-two` de la sección anterior, con `CCDD_EXECUTOR_MODEL`
+  apuntando a Ollama -- `start-ephemeral-agent` devolvió el `jobId` al toque, `ephemeral-agent-status`
+  mostró `running` mientras el modelo trabajaba y `done` con el veredicto real al terminar, confirmado
+  corriendo `pytest` a mano sobre el archivo generado.
 
 ## Licencia
 

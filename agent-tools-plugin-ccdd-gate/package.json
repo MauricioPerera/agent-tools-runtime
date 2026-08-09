@@ -1,8 +1,8 @@
 {
   "name": "agent-tools-plugin-ccdd-gate",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "ccdd-gate plugin for agent-tools-runtime: stdio MCP client for the ccdd-complexity server (deterministic AST-based Python code-quality/governance gates from the KDD/CCDD methodology) -- no invented tool catalog, proxies tools/list and tools/call as-is, plus a deterministic quality-gate-check skill.",
+  "description": "ccdd-gate plugin for agent-tools-runtime: stdio MCP client for the ccdd-complexity server (deterministic AST-based Python code-quality/governance gates from the KDD/CCDD methodology) -- no invented tool catalog, proxies tools/list and tools/call as-is, plus deterministic skills: quality-gate-check, and start-ephemeral-agent/ephemeral-agent-status for async delegation.",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

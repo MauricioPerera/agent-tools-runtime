@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ccdd-gate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "agent-tools-runtime plugin for ccdd-gate: a stdio MCP client wrapping the ccdd-complexity server (deterministic, AST-based Python code-quality/governance gates from the KDD/CCDD methodology).",
   "license": "MIT",
   "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
@@ -28,7 +28,7 @@
         "audit_composition",
         "audit_orphan_targets"
       ],
-      "skills": [],
+      "skills": ["./skills/quality-gate-check.mjs"],
       "discoverHint": "Requiere Python accesible (CCDD_GATE_PYTHON o 'python' en PATH) y el script del server (CCDD_GATE_SCRIPT, ej. D:/repos/ccddgate/ccdd-gate/runners/complexity_mcp.py). run_ephemeral_agent además necesita CCDD_EXECUTOR_API/CCDD_EXECUTOR_MODEL en el entorno del proceso Python -- el resto del catálogo (análisis AST puro) no depende de ningún LLM."
     }
   }

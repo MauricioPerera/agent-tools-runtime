@@ -55,11 +55,14 @@ El catalogo real de `toolName` lo define el server ccdd-complexity, no este plug
 
 ## Skills
 
-Ninguna todavia -- a diferencia de los demas plugins de esta sample, este arranca como proxy MCP puro
-(sin capa de orquestacion determinista encima). El servidor ccdd-complexity ya trae su propia
-instructivo de flujo (`lint_task_contract` -> escribir target+tests -> `run_ephemeral_agent`) en el
-`instructions` de su `initialize`; una skill se justifica solo si el uso real muestra friccion
-concreta que valga la pena colapsar en una sola llamada.
+- **`quality-gate-check({ code, language?, checks? })`** -- corre `measure_complexity` +
+  `run_rules_gate` sobre un snippet en una sola llamada. Fricción real encontrada probando el plugin
+  en vivo (pool exec, prompt abierto): `run_rules_gate` lee un `rules.yaml` y el archivo target DEL
+  DISCO -- no acepta código ni reglas inline -- así que sin este skill el caller tiene que escribir el
+  snippet a un archivo temporal, escribir el `rules.yaml` a mano, y recién ahí llamar el gate. El
+  skill gestiona un tempdir efímero (se borra al terminar) y devuelve un veredicto combinado
+  (`PASS`/`FAIL`/`INVALID`) con las métricas de complejidad y las violaciones de política, sin opinión
+  de LLM encima -- son los dos gates deterministas del backend tal cual.
 
 ## Licencia
 

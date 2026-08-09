@@ -108,14 +108,14 @@ modo headless (`-p`). No es un bug de este runtime ni del adapter; es una limita
 
 **Intento 2, extensión propia -- funciona.** Las extensiones de Pi (`pi.registerTool()`) se registran
 al cargar la extensión, **antes** de cualquier gate interactivo -- esquivan el problema por completo.
-[`integrations/pi-extension.ts`](integrations/pi-extension.ts) hace `tools/list` contra el transporte
-HTTP de este runtime al arrancar y registra cada tool real como un tool nativo de Pi, reusando las
-mismas tres formas de argumento fijas que ya define `mcp-server.mjs` (`discover`/`call`/`run_skill`)
-en vez de reenviar el JSON Schema crudo, para no depender de si el validador de Pi acepta ese formato
-sin la marca típebox.
+[`integrations/pi-extension`](integrations/pi-extension) -- publicado como paquete real de Pi,
+`agent-tools-runtime-pi-extension` -- hace `tools/list` contra el transporte HTTP de este runtime al
+arrancar y registra cada tool real como un tool nativo de Pi, reusando las mismas tres formas de
+argumento fijas que ya define `mcp-server.mjs` (`discover`/`call`/`run_skill`) en vez de reenviar el
+JSON Schema crudo, para no depender de si el validador de Pi acepta ese formato sin la marca típebox.
 
 ```bash
-cp integrations/pi-extension.ts .pi/extensions/agent-tools-runtime.ts   # o -e ./pi-extension.ts
+pi install npm:agent-tools-runtime-pi-extension   # o -e npm:agent-tools-runtime-pi-extension para probar sin instalar
 npm run mcp:http   # el server HTTP tiene que estar corriendo
 ```
 

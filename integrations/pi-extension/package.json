@@ -1,0 +1,32 @@
+{
+  "name": "agent-tools-runtime-pi-extension",
+  "version": "0.1.0",
+  "description": "Pi (pi.dev) extension for agent-tools-runtime: registers each real facade tool natively at load time, no pi-mcp-adapter or /mcp setup onboarding required.",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "agent-tools-runtime",
+    "mcp",
+    "pi.dev"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "integrations/pi-extension"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "extensions"
+  ]
+}

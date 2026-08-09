@@ -444,7 +444,14 @@ function buildHelp(plugins) {
 function reply(id, result) { return { jsonrpc: '2.0', id, result }; }
 function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 
-async function main() {
+/** Arma el estado de una sesión de protocolo (plugins cargados, catálogo de
+ * tools de la fachada, y el dispatcher `processMessage`) sin acoplarlo a
+ * ningún transporte -- stdio (main(), abajo) y el server HTTP
+ * (mcp-http-server.mjs) llaman esto por igual y solo difieren en cómo leen
+ * el JSON-RPC de entrada y escriben la respuesta. Separado de main() para
+ * que agregar un transporte nuevo sea sumar un archivo, no reimplementar el
+ * dispatch. */
+export async function createMessageHandler() {
   const plugins = await discoverPlugins();
   for (const problem of validateRelatedLinks(plugins)) console.error(`[related] ${problem}`);
   const help = buildHelp(plugins);
@@ -541,6 +548,11 @@ async function main() {
     }
   }
 
+  return { processMessage, plugins, tools };
+}
+
+async function main() {
+  const { processMessage } = await createMessageHandler();
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line.trim()) continue;

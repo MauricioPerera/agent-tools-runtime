@@ -12,7 +12,8 @@
   },
   "bin": {
     "agent-tools": "bin/agent-tools.mjs",
-    "agent-tools-mcp": "bin/agent-tools-mcp.mjs"
+    "agent-tools-mcp": "bin/agent-tools-mcp.mjs",
+    "agent-tools-mcp-http": "bin/agent-tools-mcp-http.mjs"
   },
   "files": [
     "README.md",
@@ -32,6 +33,7 @@
     "validate-plugins": "node scripts/validate-plugins.mjs",
     "serve": "node runtime/agent-tools-runtime.mjs serve",
     "mcp": "node runtime/mcp-server.mjs",
+    "mcp:http": "node runtime/mcp-http-server.mjs",
     "test": "node --test test/*.test.mjs"
   }
 }

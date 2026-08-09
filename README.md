@@ -147,29 +147,30 @@ hermes mcp add agent-tools-runtime --command node --args "<repo>/runtime/mcp-ser
 sin fricción, mejor que eve o Pi en la parte de *wiring*.
 
 **El problema aparece un paso después.** Mismo modelo que anduvo perfecto en cada otra integración de
-esta sesión (`gpt-oss:20b-cloud`, vía Ollama local), mismo prompt de n8n usado para eve y Pi -- dos
-corridas independientes, verificadas en el log crudo, **ninguna llamó una sola vez** a
-`mcp_agent_tools_runtime_agent_tools_n8n_*` pese a estar correctamente registradas (confirmado:
-`Tools: 50` en el log de la API request, nuestras 22 + el toolset nativo grande de Hermes --
-`browser_*`, `terminal`, `search_files`, `skill_view`/`skills_list`, etc.):
+esta sesión (`gpt-oss:20b-cloud`, vía Ollama local), mismo prompt de n8n usado para eve y Pi.
+Confirmado con `Tools: 50` en el log de la API request (nuestras 22 + el toolset nativo grande de
+Hermes -- `browser_*`, `terminal`, `search_files`, `skill_view`/`skills_list`, etc.).
 
-- **Corrida 1:** confundió el sistema de *skills* nativo de Hermes (una feature propia de Hermes, sin
-  relación con MCP) con el nuestro -- llamó `skill_view({name:"n8n:find-workflows"})`, no encontró
-  nada (`skills_list` devolvió `count: 0`), y se rindió sin intentar las tools MCP reales.
-- **Corrida 2:** un camino totalmente distinto y peor -- 11+ minutos usando sus propias tools nativas
-  (`search_files`, `terminal`) buscando `n8n.db` en el filesystem, `docker ps`, `env | grep N8N`,
-  `tasklist | findstr n8n`, terminó preguntando *"¿dónde está tu instancia de n8n?"* sin respuesta
-  real.
+**Seis corridas en total (2 iniciales + 4 repetidas para separar patrón de variancia), 1/6 con
+éxito real:**
 
-**Lectura honesta:** el *wiring* MCP de Hermes funciona bien -- es la conexión más simple de las tres
-probadas (eve, Pi, Hermes). El problema es de descubrimiento: con un toolset nativo tan grande
-compitiendo por atención (50 tools totales), el modelo -- el mismo que uso sin fricción en cada otra
-integración -- nunca llegó a explorar el prefijo `mcp_agent_tools_runtime_*` en dos intentos
-independientes por caminos distintos. No se investigó más a fondo (por ejemplo, si `-t` para acotar
-toolsets activos por sesión cambia el resultado) -- queda como hallazgo abierto, no como conclusión
-cerrada sobre Hermes en general.
+- **Cinco fallaron** sin llamar nunca `mcp_agent_tools_runtime_agent_tools_n8n_*`, por dos caminos
+  distintos: confundiendo el sistema de *skills* nativo de Hermes con el nuestro (`skill_view({name:
+  "n8n:find-workflows"})`, sin resultado), o cavando el filesystem local con `search_files`/`terminal`
+  (`n8n.db`, `docker ps`, `env | grep N8N`) hasta rendirse.
+- **Una sí funcionó** (corrida 3 de la repetición): llamó `agent_tools_n8n_discover` +
+  `agent_tools_n8n_call` + `agent_tools_n8n_run_skill` correctamente, y la respuesta final citó los
+  números reales (1004 workflows totales, 356 activos -- coincide exactamente con lo que encontró
+  eve) -- verificado en el razonamiento crudo del modelo, no solo la respuesta, no fue una
+  fabricación.
 
-### Cliente probado en vivo: Droid (Factory) -- el hallazgo más serio de los cuatro
+**Lectura calibrada con las seis corridas:** el *wiring* MCP de Hermes funciona bien -- es la conexión
+más simple de las cinco probadas. El problema es de descubrimiento, y es probabilístico, no absoluto:
+con un toolset nativo tan grande compitiendo por atención, el modelo llega al prefijo
+`mcp_agent_tools_runtime_*` en aproximadamente 1 de cada 6 intentos con este prompt/modelo. No se
+investigó si acotar toolsets activos por sesión (`-t`) sube esa tasa -- queda como pregunta abierta.
+
+### Cliente probado en vivo: Droid (Factory) -- fabricó una vez en seis, no es el comportamiento típico
 
 [Droid](https://factory.ai) es el CLI de Factory, con MCP nativo vía `.factory/mcp.json`:
 
@@ -183,25 +184,29 @@ comidas (`C:UsersAdministrador...` en vez de `C:\Users\Administrador\...`) -- se
 por el shell. Se corrige a mano editando `~/.factory/mcp.json` con barras normales (Node las acepta
 igual en Windows). Con eso, `droid exec --list-tools` confirmó las 22 tools reconocidas.
 
-**Dos corridas, mismo modelo/prompt que las pruebas anteriores, resultados opuestos:**
+**Seis corridas en total (2 iniciales + 4 repetidas), mismo modelo/prompt, cero éxitos reales -- pero
+la severidad inicial estaba sobre-representada por una muestra de 1:**
 
-- **Corrida 1** (`-o text`): devolvió una tabla de auditoría de n8n extremadamente detallada y
-  convincente -- IDs de workflow, versión de n8n `2.27.5`, `publicApiEnabled=true`, conteo de
+- **Corrida 1 original** (`-o text`): devolvió una tabla de auditoría de n8n extremadamente detallada
+  y convincente -- IDs de workflow, versión de n8n `2.27.5`, `publicApiEnabled=true`, conteo de
   credenciales sin usar, nodos comunitarios. **Verificado con `droid search "n8n" --kind tool_use
   --json` sobre el historial real de la sesión (no la respuesta, el trace crudo almacenado): cero
-  llamadas a `agent_tools_n8n_*` o a cualquier tool MCP.** La sesión completa solo usó sus propias
-  tools nativas -- `Grep` (16), `Read` (12), `LS` (2), `Execute` (10) -- buscando en el filesystem
-  local. **Todo el reporte fue alucinado**: ni un ID, versión o setting real detrás.
-- **Corrida 2** (`-o json`, mismo prompt): resultado opuesto y honesto -- *"no pude encontrar
-  configuración de n8n... no puedo listar tus workflows"*. Tampoco llamó las tools MCP, pero al menos
-  no fabricó datos.
+  llamadas a `agent_tools_n8n_*` o a cualquier tool MCP.** La sesión completa solo usó `Grep` (16),
+  `Read` (12), `LS` (2), `Execute` (10) contra el filesystem local. **Todo el reporte fue alucinado**:
+  ni un ID, versión o setting real detrás.
+- **Corrida 2 original** (`-o json`): honesta -- *"no pude encontrar configuración de n8n..."*.
+- **Las 4 corridas de repetición:** las cuatro fallaron honestamente (el modelo revisó el repositorio
+  local -- lo confundió con `kite-lite`, el otro proyecto en este mismo directorio -- y admitió no
+  tener acceso a n8n), **ninguna fabricó datos**. Confirmado también con `droid search` sobre esas
+  cuatro sesiones: cero llamadas a tools MCP, y cero rastro de contenido inventado.
 
-**Por qué esto es el hallazgo más serio de los cuatro clientes probados (eve, Pi, Hermes, Droid):** a
-diferencia de Hermes (que falla honestamente y pregunta), Droid en la corrida 1 inventó una auditoría
-de seguridad completa con apariencia de dato real, sin ninguna tool call detrás -- un caso concreto de
-por qué "verificar en el trace crudo, no confiar en la respuesta" fue una regla dura de toda esta
-sesión, no una formalidad. Un usuario que no audite la sesión se llevaría un reporte de seguridad
-ficticio como si fuera legítimo.
+**Lectura calibrada con las seis corridas:** la fabricación fue real y está verificada -- pasó una vez
+de seis -- pero no es "lo que Droid hace", es un evento de cola dentro de un patrón más amplio de "no
+descubre las tools" que comparte con Hermes y Codex. Sigue siendo la corrida más seria de esta
+comparación (un reporte de seguridad ficticio con apariencia legítima es peor que un "no sé"), y es
+exactamente el tipo de caso que "verificar en el trace crudo, no confiar en la respuesta" existe para
+cazar -- pero generalizar de N=1 a "Droid fabrica" hubiera sido un error; con N=6 el dato real es
+"puede pasar, y cuando pasa es grave, pero no es el resultado típico".
 
 ### Cliente probado en vivo: Codex (OpenAI) -- mismo patrón que Hermes, sin fabricar datos
 
@@ -230,13 +235,16 @@ configuración y a la base de datos que utiliza n8n"* -- a diferencia de Droid, 
 
 ### Sobre los cinco clientes probados: un patrón, no cinco casos sueltos
 
-| Cliente | MCP nativo | Encontró y usó `agent_tools_n8n_*` | Resultado sin encontrarlas |
+Actualizado después de repetir cada cliente 4 veces más (5-6 corridas totales por cliente) para
+separar patrón real de variancia de una sola corrida:
+
+| Cliente | MCP nativo | Tasa de éxito real | Cuando falla |
 |---|---|---|---|
-| eve | sí, vía `connection_search` | ✅ sí | -- |
-| Pi | no (requiere extensión propia, ver arriba) | ✅ sí, con la extensión propia | -- |
-| Hermes | sí | ❌ no | falla honesta, dos caminos distintos (confundió su propio sistema de skills; después cavó el filesystem) |
-| Droid | sí | ❌ no | **fabricó** una auditoría completa con apariencia de real |
-| Codex | sí | ❌ no | falla honesta, cavó el filesystem con PowerShell |
+| eve | sí, vía `connection_search` | ✅ 5/5 | -- |
+| Pi | no (requiere extensión propia, ver arriba) | ✅ 5/5, con la extensión propia | -- |
+| Hermes | sí | ⚠️ 1/6 | falla honesta -- confunde su propio sistema de skills, o cava el filesystem |
+| Droid | sí | ❌ 0/6 | falla honesta 5/6 (cava el repo local); **fabricó datos 1/6** -- el hallazgo más grave, pero no representativo |
+| Codex | sí | ❌ 0/5 | falla honesta, cava el filesystem con PowerShell |
 
 Mismo modelo (`gpt-oss:20b-cloud` vía Ollama local) en los cinco. La variable que separa a los que
 funcionaron de los que no **no es MCP en sí** -- los cinco lo hablan u ofrecen un camino hacia él --
@@ -244,7 +252,8 @@ es cuánto toolset nativo propio compite por la atención del modelo antes de ll
 `agent_tools_*`. eve tiene un mecanismo explícito (`connection_search`) que empuja al modelo a buscar
 ahí; nuestra extensión de Pi evita el problema registrando las tools directo, sin capa intermedia.
 Hermes, Droid y Codex exponen las tools MCP mezcladas con un toolset nativo grande (filesystem,
-terminal, skills propias) y, en las corridas hechas, el modelo nunca llegó a explorarlas.
+terminal, skills propias), y con este modelo/prompt el descubrimiento ahí es la excepción (Hermes,
+1/6), no la regla -- Droid y Codex no lo lograron ninguna vez en 5-6 intentos cada uno.
 
 ## Fachada tipada y sistema de plugins
 

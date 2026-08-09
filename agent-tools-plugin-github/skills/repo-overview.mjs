@@ -2,6 +2,12 @@
 // en una sola llamada, mismo patron que insert-and-verify-datatable-row del
 // plugin de n8n (sin generar codigo, solo colapsar orquestacion).
 
+export const meta = {
+  description: 'Junta get_repository + list_issues + get_latest_commit en una sola llamada: metadata del repo, cantidad de issues abiertos, y último commit. No incluye pull requests.',
+  args: 'owner, repo (requeridos).',
+  related: [{ target: 'ghcli:repo-overview', why: 'Mismo resumen pero vía CLI (gh) en vez de REST directa -- e incluye conteo de PRs abiertos, que esta versión no tiene.' }],
+};
+
 function extractContentJson(mcpResult) {
   const text = mcpResult?.content?.[0]?.text;
   if (typeof text !== 'string') return mcpResult;

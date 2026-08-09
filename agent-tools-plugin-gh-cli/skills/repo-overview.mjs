@@ -7,6 +7,7 @@
 export const meta = {
   description: 'Junta repo_view + issue_list + pr_list de gh CLI en una sola llamada: metadata del repo, cantidad de issues y PRs abiertos.',
   args: 'owner, repo (requeridos).',
+  related: [{ target: 'github:repo-overview', why: 'Misma idea vía REST API directa -- no requiere el binario gh instalado/autenticado en el host, pero no cuenta pull requests.' }],
 };
 
 function extractContentJson(mcpResult) {

@@ -261,12 +261,46 @@ function searchSkills(skills, query, limit) {
         if (!haystack.includes(term)) return sum;
         return sum + (name.toLowerCase().includes(term) ? 3 : 1);
       }, 0);
-      return { kind: 'skill', name, description: meta.description || '', args: meta.args || '', score };
+      const entry = { kind: 'skill', name, description: meta.description || '', args: meta.args || '' };
+      if (meta.related?.length) entry.related = meta.related;
+      return { ...entry, score };
     })
     .filter((m) => m.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(({ score, ...rest }) => rest);
+}
+
+/** Un salto de grafo, no un motor de traversal: `meta.related` en una skill
+ * (ver skills/*.mjs) puede listar `{ target: "prefix:skill-name", why }` --
+ * otras skills (mismo plugin o de otro) que conviene mirar desde acá. El caso
+ * real que motivó esto: agent-tools-plugin-github y agent-tools-plugin-gh-cli
+ * cubren el mismo dominio (ambos tienen una skill `repo-overview`), pero
+ * `agent_tools_help()` (que lista los 6 plugins juntos, sin decir cuál se
+ * relaciona con cuál) resultó insuficiente para que un agente ya parado en
+ * uno encontrara el otro sin que se lo nombraran explícito -- un `related`
+ * apunta directo al vecino en vez de hacer que el agente adivine entre 6.
+ *
+ * Alcance a propósito: solo valida que el target sea una SKILL real de un
+ * plugin cargado, no una tool cruda -- el catálogo de tools de un adapter a
+ * veces solo se conoce tras conectar en vivo (n8n, pocketbase), y esto corre
+ * al arranque, antes de que nada se conecte. Un target roto (plugin borrado,
+ * typo, skill renombrada) no tumba el arranque -- se loguea a stderr, mismo
+ * criterio que un plugin que falla al cargar, porque es metadata de
+ * discoverabilidad, no una dependencia funcional. */
+function validateRelatedLinks(plugins) {
+  const byPrefix = new Map(plugins.map((p) => [p.prefix, p]));
+  for (const plugin of plugins) {
+    for (const [skillName, mod] of Object.entries(plugin.skills)) {
+      for (const rel of mod.meta?.related || []) {
+        const [targetPrefix, targetSkill] = String(rel.target || '').split(':');
+        const targetPlugin = byPrefix.get(targetPrefix);
+        if (!targetPlugin || !targetPlugin.skills[targetSkill]) {
+          console.error(`[related] ${plugin.prefix}:${skillName} -> '${rel.target}' no resuelve (¿plugin/skill borrado o renombrado?)`);
+        }
+      }
+    }
+  }
 }
 
 async function handleDiscover(plugin, args) {
@@ -381,6 +415,7 @@ function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, 
 
 async function main() {
   const plugins = await discoverPlugins();
+  validateRelatedLinks(plugins);
   const help = buildHelp(plugins);
   // toolName -> { plugin, kind: 'discover'|'call'|'run_skill' }
   const routes = new Map();

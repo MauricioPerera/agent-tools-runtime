@@ -151,8 +151,9 @@ capa por capa, con qué tan probado está cada mecanismo.
 |---|---|---|---|
 | Nombre de skill | Que existe una receta para la tarea | Listado estático en la descripción de `run_skill` | Siempre — barato, fijo, no depende de que el agente pregunte nada |
 | Forma de una skill | Argumentos/modos que acepta (ej. `mode:"nativeAudit"`) | `meta` por skill, indexado por `discover({ query })` | Solo si hay `query` — el modo "listar sin filtro" queda igual de barato que antes |
-| Otros plugins del mismo dominio | Que existe una alternativa con capacidades distintas (ej. `github` vs `gh-cli`) | `agent_tools_help()` lista todos los plugins cargados; cada `discover` lo menciona en su propia descripción | Solo si el agente llama `help()` explícitamente |
-| — (no es una capa, es el techo) | — | Acceso a shell directo al mismo backend que un plugin envuelve | Gratis para el agente, y le gana a las tres capas de arriba cuando existe |
+| Otros plugins del mismo dominio (a ciegas) | Que existe una alternativa con capacidades distintas (ej. `github` vs `gh-cli`) | `agent_tools_help()` lista todos los plugins cargados; cada `discover` lo menciona en su propia descripción | Solo si el agente llama `help()` explícitamente |
+| Otros plugins, dirigido (un salto) | Ídem, pero apuntando al vecino exacto en vez de a los 6 plugins mezclados | `meta.related` de una skill (`[{ target: "prefix:skill-name", why }]`), sumado al resultado de `discover({ query })` cuando esa skill matchea | Mismo costo que la fila 2 — solo con query, ya viene incluido en esa búsqueda |
+| — (no es una capa, es el techo) | — | Acceso a shell directo al mismo backend que un plugin envuelve | Gratis para el agente, y le gana a todas las de arriba cuando existe |
 
 **Nivel de confianza real en cada fila, no solo la intención de diseño:**
 
@@ -161,15 +162,25 @@ capa por capa, con qué tan probado está cada mecanismo.
   silencio el mismo reporte genérico (el argumento quedaba mal anidado y el default absorbía el error);
   con él, un error explícito señala la forma correcta y el modelo se corrige en el primer reintento en
   vez de reconstruir todo a mano con tools sueltas.
-- **Otros plugins (fila 3): probado, pero más débil de lo que parece.** Funciona *si* el agente llega a
-  llamar `discover` con query o `help()` — nunca se aisló si el aviso de texto es la causa real de que un
-  agente encuentre el plugin correcto, o si el modelo simplemente asocia el nombre por su cuenta. Y en una
-  corrida real, el agente jamás llamó ni `discover` ni `help()`: fue directo a resolver la tarea por otro
-  camino, así que el aviso nunca tuvo la oportunidad de leerse.
+- **Otros plugins, a ciegas (fila 3): probado, pero más débil de lo que parece.** Funciona *si* el agente
+  llega a llamar `discover` con query o `help()` — nunca se aisló si el aviso de texto es la causa real de
+  que un agente encuentre el plugin correcto, o si el modelo simplemente asocia el nombre por su cuenta. Y
+  en una corrida real, el agente jamás llamó ni `discover` ni `help()`: fue directo a resolver la tarea por
+  otro camino, así que el aviso nunca tuvo la oportunidad de leerse.
+- **Otros plugins, dirigido (fila 4): un salto de grafo, no un motor de traversal.** `related` no reemplaza
+  la búsqueda inicial (sigue haciendo falta encontrar el primer nodo con `discover`) — apunta al vecino
+  exacto una vez que ya encontraste algo, en vez de forzar al agente a elegir entre los 6 plugins de
+  `help()`. Se valida al arrancar (`validateRelatedLinks` en `mcp-server.mjs`): un `target` que no resuelve
+  a una skill real de un plugin realmente cargado se loguea a stderr, no tumba nada — es metadata de
+  discoverabilidad, no una dependencia funcional. Alcance a propósito: solo conecta skills entre sí, no
+  tools crudas (el catálogo de una tool cruda a veces solo se conoce tras conectar en vivo, y esto corre
+  antes de que nada se conecte). Mismo riesgo que `discoverHint` desde el día uno: un `related` sin
+  mantener apunta a algo que ya no existe — la validación al arrancar avisa, pero no impide que quede
+  desactualizado si nadie lee el log.
 - **El techo: confirmado, no es hipotético.** Mismo modelo, misma tarea, mismo plugin: con shell
   disponible, ignoró todo el sistema de plugins y llamó al binario subyacente directo; sin shell
-  disponible, usó el plugin y encontró la skill correcta sin que nadie la nombrara. Estas tres capas
-  funcionan como discoverabilidad real solo en un entorno donde el agente no tiene una ruta más corta —
+  disponible, usó el plugin y encontró la skill correcta sin que nadie la nombrara. Ninguna de las capas
+  de arriba funciona como discoverabilidad real fuera de un entorno donde el agente no tiene una ruta más corta —
   no son una frontera de seguridad ni de control, son la ruta ganadora únicamente cuando es la única.
 
 ## Desarrollo

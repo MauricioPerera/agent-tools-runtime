@@ -88,6 +88,44 @@ En ambos casos el flujo fue el mismo y sin fricción: `connection_search` (mecan
 para descubrir tools de una conexión MCP por texto libre) encontró la conexión y las tools/skills
 correctas, verificado en el trace crudo del stream de eventos, no solo en la respuesta final.
 
+### Cliente probado en vivo: Pi (pi.dev) -- vía extensión propia, no MCP
+
+[Pi](https://pi.dev) es un coding agent liviano construido sobre el Claude Agent SDK. No tiene soporte
+MCP nativo -- depende de un paquete de terceros, [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter),
+que expone un único tool `mcp()` proxy (para no gastar contexto con el catálogo completo de cada
+server, mismo espíritu que la fachada `discover`/`call` de este runtime).
+
+**Intento 1, con `pi-mcp-adapter`, fallido -- documentado para no repetir el mismo camino:**
+instalé el adapter (`pi install npm:pi-mcp-adapter`) y probé tanto `.pi/mcp.json` como `.mcp.json`
+(las dos ubicaciones que documenta el paquete) apuntando a este runtime. En ambos casos, verificado
+en el trace crudo, el modelo **nunca vio el tool `mcp()`** -- solo tenía disponibles los tools nativos
+de Pi (`bash`, `read`). La causa, confirmada en la documentación oficial de Pi
+([`security.md`](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/security.md)):
+la activación real de un server pasa por `/mcp` o `/mcp setup`, explícitamente descriptos como
+*"interactive panel and first-run onboarding surface"* -- sin equivalente de línea de comandos para
+modo headless (`-p`). No es un bug de este runtime ni del adapter; es una limitación real de
+`pi-mcp-adapter` para automatización sin TTY.
+
+**Intento 2, extensión propia -- funciona.** Las extensiones de Pi (`pi.registerTool()`) se registran
+al cargar la extensión, **antes** de cualquier gate interactivo -- esquivan el problema por completo.
+[`integrations/pi-extension.ts`](integrations/pi-extension.ts) hace `tools/list` contra el transporte
+HTTP de este runtime al arrancar y registra cada tool real como un tool nativo de Pi, reusando las
+mismas tres formas de argumento fijas que ya define `mcp-server.mjs` (`discover`/`call`/`run_skill`)
+en vez de reenviar el JSON Schema crudo, para no depender de si el validador de Pi acepta ese formato
+sin la marca típebox.
+
+```bash
+cp integrations/pi-extension.ts .pi/extensions/agent-tools-runtime.ts   # o -e ./pi-extension.ts
+npm run mcp:http   # el server HTTP tiene que estar corriendo
+```
+
+**Verificado en vivo**, mismo prompt/modelo que la prueba de n8n con eve (comparable directamente):
+llamó `agent_tools_n8n_run_skill({skill:"find-workflows"})`, después `agent_tools_n8n_discover` y dos
+`agent_tools_n8n_call({toolName:"get_workflow_details"})` para inspeccionar workflows puntuales --
+encontró los mismos dos workflows con webhook sin autenticación que ya había encontrado eve, con los
+IDs reales coincidiendo. Estrategia distinta a la de eve (inspección puntual en vez de la skill
+`audit-workflows` completa), mismo resultado correcto.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

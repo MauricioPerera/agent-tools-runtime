@@ -1,6 +1,6 @@
 {
   "name": "agent-tools-plugin-github",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "GitHub plugin for agent-tools-runtime: typed facade tools (search_repositories, get_repository, list_issues, get_latest_commit, create_issue) plus a deterministic repo-overview skill.",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "directory": "agent-tools-plugin-github"
   },
   "peerDependencies": {
-    "@rckflr/agent-tools-runtime": ">=0.1.3"
+    "@rckflr/agent-tools-runtime": ">=0.2.4"
   },
   "files": [
     "README.md",

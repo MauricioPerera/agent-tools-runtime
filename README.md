@@ -158,6 +158,20 @@ capa por capa, con qué tan probado está cada mecanismo.
 
 **Nivel de confianza real en cada fila, no solo la intención de diseño:**
 
+- **Nombre de skill (fila 1): confirmado con A/B en vivo, y el resultado depende del tamaño del
+  modelo.** Mismo prompt, mismo código (una función Python con anidamiento excesivo, default mutable,
+  `except:` desnudo y `== None`), contra la skill `quality-gate-check` de `agent-tools-plugin-ccdd-gate`,
+  probado con cuatro modelos "grandes": `glm-5.2:cloud`, `kimi-k2.6:cloud`, `deepseek-v4-pro:cloud`,
+  `nemotron-3-ultra:cloud`. Los cuatro encontraron y llamaron la skill correcta con los argumentos
+  correctos al primer intento (verificado en el trace crudo del tool call, no solo leyendo la respuesta
+  final). Dos de los cuatro (`deepseek-v4-pro`, `nemotron-3-ultra`) ni llegaron a llamar
+  `discover`: fueron directo a `run_skill` con el nombre exacto, resuelto solo con el listado estático de
+  la fila 1 — la capa más barata que existe. Los otros dos sí pasaron por `discover` primero (fila 2), un
+  paso extra pero sin ningún error ni reintento. Contraste con los modelos chicos usados en pruebas
+  anteriores de este mismo repo (`gpt-oss:20b-cloud`, `gemma4:cloud`): esos sí necesitaron el mecanismo de
+  auto-corrección de `error-hints` para resolver la forma de una llamada mal anidada. Lectura: la fila 1
+  sola ya alcanza para que un modelo grande use la skill correcta sin fricción; las filas de abajo
+  (`meta`/`discover`, error-hints) importan más cuanto más chico es el modelo, no menos.
 - **Forma de skill (fila 2): confirmado con A/B en vivo.** Mismo prompt, mismo modelo, antes/después del
   fix — sin él, tres llamadas seguidas a `mode:"nativeAudit"`/`"executions"`/`"credentials"` devolvían en
   silencio el mismo reporte genérico (el argumento quedaba mal anidado y el default absorbía el error);

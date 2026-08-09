@@ -126,6 +126,13 @@ encontró los mismos dos workflows con webhook sin autenticación que ya había 
 IDs reales coincidiendo. Estrategia distinta a la de eve (inspección puntual en vez de la skill
 `audit-workflows` completa), mismo resultado correcto.
 
+**Mismo prompt, mismo proyecto, mismas tools registradas -- solo cambiando a un modelo chico
+(`qwen2.5:1.5b`):** cero tool calls. Respuesta vaga y divagante ("invertir en recursos", "consultar a
+alguien versátil") sin tocar ninguna tool real. Como la extensión ya estaba confirmada funcionando en
+la corrida anterior con el mismo setup exacto, este resultado negativo queda aislado limpio como
+límite de capacidad del modelo, no de la integración -- mismo patrón que el resto de esta sección de
+discoverabilidad: modelos grandes usan esta capa sin fricción, modelos chicos ni la intentan.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

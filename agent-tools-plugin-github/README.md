@@ -32,7 +32,7 @@ Catálogo de `toolName` disponibles vía `_call`:
 |---|---|---|
 | `search_repositories` | Busca repos por texto libre | No |
 | `get_repository` | Metadata de un repo (`owner`, `repo`) | No |
-| `list_issues` | Lista issues de un repo | No |
+| `list_issues` | Lista issues de un repo, pagina internamente hasta traerlos todos (100 por página vía `per_page`) | No |
 | `get_latest_commit` | Último commit de una rama | No |
 | `create_issue` | Crea un issue nuevo | **Sí — requiere `confirm: true`** |
 

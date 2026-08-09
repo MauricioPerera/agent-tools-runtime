@@ -59,6 +59,27 @@ export class GitHubAdapter {
     return payload;
   }
 
+  /** list_issues pedia per_page=20 fijo, sin loop ni cursor -- cualquier repo
+   * con mas de 20 issues en el estado pedido devolvia un conteo/lista
+   * silenciosamente incompleta (mismo patron que el bug real de paginacion
+   * de search_workflows/audit-workflows en el plugin de n8n). Pagina de a 100
+   * (el maximo de la REST API v3) y sigue hasta que una pagina vuelve con
+   * menos de 100 items -- misma heuristica que fetchAllWorkflows en
+   * agent-tools-plugin-n8n/skills/_shared.mjs, sin tope artificial: "listar
+   * issues" tiene que significar todos, no una muestra. */
+  async fetchAllIssues(owner, repo, state) {
+    const perPage = 100;
+    let page = 1;
+    let all = [];
+    while (true) {
+      const data = await this.request('GET', `/repos/${owner}/${repo}/issues?state=${state}&per_page=${perPage}&page=${page}`);
+      all = all.concat(data);
+      if (data.length < perPage) break;
+      page += 1;
+    }
+    return all;
+  }
+
   async listTools() { return { tools: TOOLS }; }
 
   async search(query, limit = 5) {
@@ -94,8 +115,8 @@ export class GitHubAdapter {
     }
     if (name === 'list_issues') {
       const state = a.state || 'open';
-      const data = await this.request('GET', `/repos/${a.owner}/${a.repo}/issues?state=${state}&per_page=20`);
-      return { content: [{ type: 'text', text: JSON.stringify(data.filter((i) => !i.pull_request).map((i) => ({ number: i.number, title: i.title, state: i.state, url: i.html_url }))) }] };
+      const all = await this.fetchAllIssues(a.owner, a.repo, state);
+      return { content: [{ type: 'text', text: JSON.stringify(all.filter((i) => !i.pull_request).map((i) => ({ number: i.number, title: i.title, state: i.state, url: i.html_url }))) }] };
     }
     if (name === 'get_latest_commit') {
       const branch = a.branch ? `?sha=${a.branch}` : '';

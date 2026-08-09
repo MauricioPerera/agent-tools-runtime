@@ -5,6 +5,11 @@
 
 import { callTool, isFailure, resolvePersonalProjectId } from './_shared.mjs';
 
+export const meta = {
+  description: 'Crea, inserta filas o lee filas de una data table. No incluye borrado: no existe delete_data_table en el catálogo MCP de n8n (para borrar la tabla entera hace falta un workflow con el nodo Data Table, operation:delete).',
+  args: 'operation: "create"|"insert"|"read" (requerido) -- create:{name,columns}, insert:{dataTableId,rows}, read:{dataTableId,filters?}.',
+};
+
 async function opCreate(n8nAdapter, args) {
   const { name, columns } = args;
   if (!name || !Array.isArray(columns) || !columns.length) {

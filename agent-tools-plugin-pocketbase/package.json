@@ -1,0 +1,35 @@
+{
+  "name": "agent-tools-plugin-pocketbase",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PocketBase plugin for agent-tools-runtime: typed facade tools (list_collections, list_records, get_record, create_record, update_record, delete_record) over PocketBase's REST API with its own dynamic (login-based) auth, plus a deterministic insert-and-verify-record skill.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "keywords": [
+    "agent-tools-runtime",
+    "mcp",
+    "pocketbase",
+    "rest-api",
+    "agent-tools-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "agent-tools-plugin-pocketbase"
+  },
+  "peerDependencies": {
+    "@rckflr/agent-tools-runtime": ">=0.2.2"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "plugin.json",
+    "adapter.mjs",
+    "skills"
+  ]
+}

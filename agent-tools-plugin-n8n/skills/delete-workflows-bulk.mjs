@@ -13,6 +13,11 @@
 // ser el default implicito de un bulk-delete.
 import { resolveInstanceUrl, fetchAllWorkflows } from './_shared.mjs';
 
+export const meta = {
+  description: 'Borra en lote todos los workflows que matchean un filtro, paginando el catálogo REST completo. Requiere al menos un filtro -- nunca borra "todos" por default.',
+  args: 'active?:boolean y/o namePattern?:string (al menos uno requerido).',
+};
+
 export async function run(_adapter, args) {
   const url = resolveInstanceUrl(args?.url);
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pocketbase",
+  "version": "0.1.0",
+  "description": "agent-tools-runtime plugin for PocketBase (self-hosted backend: REST API over collections/records with its own dynamic auth), plus a deterministic insert-and-verify-record skill.",
+  "license": "MIT",
+  "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
+  "keywords": ["agent-tools-runtime", "mcp", "pocketbase", "rest-api"],
+  "extensions": {
+    "dev.agent-tools-runtime": {
+      "prefix": "pocketbase",
+      "adapter": "./adapter.mjs",
+      "adapterExport": "PocketBaseAdapter",
+      "readonlyTools": ["list_collections", "list_records", "get_record"],
+      "skills": ["./skills/insert-and-verify-record.mjs"],
+      "discoverHint": "Requiere POCKETBASE_URL (ej. http://127.0.0.1:8090) y credenciales de superuser: POCKETBASE_EMAIL + POCKETBASE_PASSWORD. A diferencia de github/tasks/n8n (token o API key ya emitidos), la autenticación de PocketBase es dinámica -- el adapter hace login (auth-with-password contra la colección _superusers) en la primera llamada y cachea el token en memoria para el resto del proceso; no hay forma de pasar un token pre-emitido directamente. list_records pagina de a `perPage` (default 100, tope real de PocketBase 500) -- para catálogos grandes, iterar `page` explícito, esta skill/tool no trae 'todo' automáticamente como sí hace fetchAllWorkflows en el plugin de n8n."
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "agent-tools-plugin-gh-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "GitHub CLI (gh) plugin for agent-tools-runtime: typed facade tools (repo_view, issue_list, pr_list, issue_create) via execFile over the real gh binary, plus a deterministic repo-overview skill.",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "keywords": [
+    "agent-tools-runtime",
+    "mcp",
+    "github",
+    "cli",
+    "gh",
+    "agent-tools-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioPerera/agent-tools-runtime.git",
+    "directory": "agent-tools-plugin-gh-cli"
+  },
+  "peerDependencies": {
+    "@rckflr/agent-tools-runtime": ">=0.2.2"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "plugin.json",
+    "adapter.mjs",
+    "skills"
+  ]
+}

@@ -15,6 +15,11 @@
 // el workflow equivocado por un nombre ambiguo.
 import { resolveInstanceUrl, fetchAllWorkflows } from './_shared.mjs';
 
+export const meta = {
+  description: 'Borra UN workflow real por id (o por namePattern si matchea exactamente uno). No existe delete_workflow en el catálogo MCP (solo archive_workflow, que archiva).',
+  args: 'workflowId O namePattern (uno de los dos, no ambos).',
+};
+
 export async function run(_adapter, args) {
   const url = resolveInstanceUrl(args?.url);
   let workflowId = args?.workflowId;

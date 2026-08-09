@@ -5,6 +5,11 @@
 
 import { callTool, isFailure, resolvePersonalProjectId } from './_shared.mjs';
 
+export const meta = {
+  description: 'Inserta una fila en una data table (crea la tabla si hace falta), la lee de vuelta y confirma el valor escrito. No borra nada.',
+  args: 'column, value, confirm:true (requeridos) -- dataTableId?/tableName? opcionales.',
+};
+
 /** Codigo del workflow SDK. Funcion pura: mismos args -> mismo codigo siempre.
  * Basado en el codigo real que produjo un PASSED verificado en el benchmark
  * (fuzzyfix_typed_4.json, paso 16): insert + get con filtro eq.

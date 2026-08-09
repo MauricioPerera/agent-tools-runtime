@@ -6,6 +6,11 @@
 // (ver plugin.json), la misma politica que el resto de sus tools mutantes.
 import { resolveInstanceUrl } from './_shared.mjs';
 
+export const meta = {
+  description: 'Borra una credencial de n8n via REST (list_credentials del catálogo MCP es de solo lectura).',
+  args: 'credentialId (requerido, ver list_credentials).',
+};
+
 export async function run(_adapter, args) {
   const url = resolveInstanceUrl(args?.url);
   const credentialId = args?.credentialId;

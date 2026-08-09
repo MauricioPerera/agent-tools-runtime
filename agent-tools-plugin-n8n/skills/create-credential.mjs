@@ -15,6 +15,11 @@
 // especifico ("falta accessToken") en vez del generico que devuelve n8n.
 import { resolveInstanceUrl } from './_shared.mjs';
 
+export const meta = {
+  description: 'Crea una credencial de n8n via REST (no existe tool de credenciales en el catálogo MCP). Sin name/data, solo devuelve el schema del tipo para saber qué pedirle al humano.',
+  args: 'type (requerido). Para crear: agregar name + data (objeto con los campos que pide el schema). OAuth2 real sigue necesitando el consentimiento por navegador del humano.',
+};
+
 export async function run(_adapter, args) {
   const url = resolveInstanceUrl(args?.url);
   const name = typeof args?.name === 'string' && args.name.trim() ? args.name.trim() : null;

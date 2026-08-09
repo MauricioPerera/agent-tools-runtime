@@ -91,13 +91,49 @@ Agregar un plugin nuevo no requiere tocar `mcp-server.mjs`: alcanza con que el d
 alguna de esas tres ubicaciones con el `plugin.json` correcto. Un plugin que falla al cargar se loguea a
 stderr y se saltea — no tumba a los demás.
 
+### Skills descubribles: `meta` y `agent_tools_<prefix>_discover`
+
+`agent_tools_<prefix>_run_skill`'s description ya lista los *nombres* de las skills de un plugin (barato,
+siempre presente), pero eso no alcanza para que un agente sepa qué argumentos/modos acepta cada una sin
+tener que fallar una llamada primero para leer el error. Una skill puede exportar, además de `run`:
+
+```js
+export const meta = {
+  description: 'Una línea de qué hace, sin jerga interna.',
+  args: 'mode?: "a"|"b"|"c" (default "a"). otroArg (requerido).',
+};
+```
+
+Cuando `agent_tools_<prefix>_discover({ query })` se llama **con query**, busca en esos `meta` con el
+mismo scoring por texto que ya usa para las tools crudas, y los devuelve mezclados
+(`{ kind: "skill", name, description, args }`) — así un agente que pregunta "auditoría nativa" o "crear
+workflow sin publicar" encuentra el modo/flag exacto que necesita en vez de reconstruirlo a mano con
+tools sueltas. **Sin query** (modo "listar"), el comportamiento no cambia — sigue devolviendo solo tools
+crudas, para no encarecer ese caso. Una skill sin `meta` sigue funcionando igual, solo que `discover` no
+la va a encontrar por texto libre (su nombre sigue apareciendo en la descripción de `run_skill`).
+
+`agent_tools_help()` también lista todos los plugins cargados (prefix + descripción de una línea) — útil
+cuando hay más de un plugin para el mismo dominio (ver tabla de abajo, `github` vs `gh-cli`) y un agente
+ya comprometido con uno no tendría forma de enterarse de que el otro existe. La descripción de cada
+`discover` también menciona esto explícitamente, como recordatorio en el punto donde el agente ya está
+parado.
+
 ### Estado real de esto hoy
 
-Hay un solo plugin en producción (`agent-tools-plugin-n8n/`), medido extensamente contra `gpt-oss:20b-cloud`
-y `gpt-oss:120b-cloud` en un benchmark propio (no publicado todavía) que compara esta fachada contra el
-MCP directo de n8n en tokens, pasos y tasa de éxito verificada de forma independiente. El formato del
-manifest y el loader dinámico están probados con un segundo plugin de prueba (descartado tras el test), no
-todavía con un segundo plugin real de otro servicio — si escribís uno, es un buen momento para abrir un PR.
+Seis plugins reales, elegidos para cubrir formas de transporte distintas (no todos el mismo tipo de
+integración) y medir si el contrato de adapter (`listTools`/`search`/`describe`/`call`) generaliza:
+
+| Plugin | Prefix | Transporte | Qué valida |
+|---|---|---|---|
+| `agent-tools-plugin-n8n` | `n8n` | MCP sobre HTTP (proxy a un server MCP real de terceros) | El caso original — medido extensamente contra `gpt-oss:20b-cloud`/`120b-cloud` en un benchmark propio (no publicado) |
+| `agent-tools-plugin-kite-lite` | `kite` | MCP sobre stdio (spawnea un proceso hijo que habla MCP) | Adapter como cliente MCP por stdio, no HTTP |
+| `agent-tools-plugin-github` | `github` | REST (SaaS, token ya emitido) | Catálogo de tools inventado por el plugin sobre una REST API real |
+| `agent-tools-plugin-tasks` | `tasks` | REST (self-hosted, API key) | Mismo caso que github pero sin OAuth ni proveedor externo |
+| `agent-tools-plugin-gh-cli` | `ghcli` | CLI (`execFile` sobre un binario ya instalado) | Ni HTTP ni MCP — exit code + stdout/stderr como superficie de error. Mismo dominio que `github` a propósito, para aislar la variable de transporte |
+| `agent-tools-plugin-pocketbase` | `pocketbase` | REST (self-hosted, auth dinámica) | Sin API key estática — el adapter hace login (`auth-with-password`) y cachea el token, primer caso de autenticación que el propio adapter tiene que gestionar en vez de solo adjuntar |
+
+El formato del manifest y el loader dinámico ya están probados con varios plugins reales cargando a la
+vez sin tocar `mcp-server.mjs` — agregar uno nuevo es crear el directorio, no editar el runtime.
 
 ## Desarrollo
 

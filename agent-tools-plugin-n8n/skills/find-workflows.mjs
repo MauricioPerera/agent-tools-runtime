@@ -13,6 +13,11 @@
 // paginacion ni adivinar parametros que no existen.
 import { resolveInstanceUrl, fetchAllWorkflows } from './_shared.mjs';
 
+export const meta = {
+  description: 'Busca/lista workflows por active y/o namePattern, paginando el catálogo REST completo. No usar search_workflows para esto: su schema no soporta cursor ni filtro por active.',
+  args: 'active?:boolean, namePattern?:string (opcionales, se combinan con AND), page?/pageSize? paginan el resultado. Sin filtros, lista el catálogo completo paginado.',
+};
+
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 

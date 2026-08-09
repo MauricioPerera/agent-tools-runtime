@@ -86,6 +86,7 @@ async function loadPlugin(pluginDir) {
 
   return {
     name: manifest.name,
+    description: manifest.description || '',
     prefix: ext.prefix,
     adapter,
     readonlyTools: new Set(ext.readonlyTools || []),
@@ -183,7 +184,15 @@ function buildFacadeToolsForPlugin(plugin) {
   return [
     {
       name: `agent_tools_${p}_discover`,
-      description: `Busca tools de ${plugin.name} disponibles por texto libre (sin query, lista las más comunes). ${plugin.discoverHint}`,
+      // Encontrado en vivo: con dos plugins del mismo dominio cargados
+      // (github REST y ghcli), un agente que ya había elegido este prefix
+      // nunca se enteró de que el otro existía -- discover() es por-plugin,
+      // no ve el resto de la flota. agent_tools_help() sí lista todos los
+      // plugins cargados (ver buildHelp), pero nada empujaba a llamarlo antes
+      // de comprometerse con el primer prefix que sonara obvio. Este aviso
+      // vive acá, en la descripción de la tool donde el agente ya está parado
+      // -- en vez de confiar en que descubra help() por su cuenta.
+      description: `Busca tools de ${plugin.name} disponibles por texto libre (sin query, lista las más comunes). Si esto no cubre lo que necesitás, puede haber OTRO plugin cargado para el mismo dominio con otras capacidades -- llamá agent_tools_help() para ver la lista completa de plugins antes de asumir que este es el único. ${plugin.discoverHint}`,
       inputSchema: {
         type: 'object',
         properties: { query: { type: 'string', description: 'Texto de búsqueda' } },
@@ -224,13 +233,50 @@ function buildFacadeToolsForPlugin(plugin) {
   ];
 }
 
+/** Busca en los `meta` de las skills del plugin (name/description/args por
+ * skill, ver `export const meta` en cada skills/*.mjs) con el mismo scoring
+ * simple por term-match que usa adapter.search() para las tools crudas --
+ * name match pesa mas que description/args match.
+ *
+ * Por que hace falta: el nombre de cada skill ya aparece siempre en la
+ * description de agent_tools_<prefix>_run_skill (barato, always-on), pero sus
+ * argumentos/modos NO -- meterlos ahi infla esa description por cada skill del
+ * plugin en cada sesion, la usen o no. Encontrado en vivo: un agente real usó
+ * audit-workflows una sola vez con el mode default y reconstruyo a mano (con
+ * tools sueltas + scripts locales) exactamente lo que mode:"nativeAudit" /
+ * "executions" / "credentials" ya le habrian dado en una llamada, porque no
+ * tenia forma de enterarse de que esos modos existian sin leer el codigo
+ * fuente. discover() ya es el mecanismo on-demand que un agente usa cuando
+ * necesita buscar algo puntual -- sumar skills ahi (solo cuando hay query,
+ * cero costo si no se pregunta) es la misma solucion que search_workflows /
+ * find-workflows le da a las tools crudas, aplicada a las skills. */
+function searchSkills(skills, query, limit) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  return Object.entries(skills)
+    .map(([name, mod]) => {
+      const meta = mod.meta || {};
+      const haystack = `${name} ${meta.description || ''} ${meta.args || ''}`.toLowerCase();
+      const score = terms.reduce((sum, term) => {
+        if (!haystack.includes(term)) return sum;
+        return sum + (name.toLowerCase().includes(term) ? 3 : 1);
+      }, 0);
+      return { kind: 'skill', name, description: meta.description || '', args: meta.args || '', score };
+    })
+    .filter((m) => m.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ score, ...rest }) => rest);
+}
+
 async function handleDiscover(plugin, args) {
   const query = typeof args?.query === 'string' ? args.query.trim() : '';
   let matches;
   try {
     if (query) {
       const searchResult = await plugin.adapter.search(query, 8);
-      matches = searchResult.matches;
+      const skillMatches = searchSkills(plugin.skills, query, 5);
+      matches = [...skillMatches, ...searchResult.matches];
     } else {
       const listed = await plugin.adapter.listTools();
       matches = (listed.tools || []).slice(0, 15).map((t) => ({ name: t.name, description: t.description || '' }));
@@ -274,8 +320,29 @@ async function handleCall(plugin, args) {
 }
 
 async function handleRunSkill(plugin, args) {
-  const skillName = args?.skill;
-  const skillArgs = args?.arguments && typeof args.arguments === 'object' ? args.arguments : {};
+  let skillName = args?.skill;
+  let skillArgs = args?.arguments && typeof args.arguments === 'object' ? args.arguments : {};
+
+  // Encontrado en vivo: un modelo llamó esta tool con TODO el payload
+  // envuelto en un 'arguments' de más -- { arguments: { arguments: {...},
+  // skill: "..." } } en vez de { skill: "...", arguments: {...} } al nivel
+  // que espera esta tool. Resultado observado: "Unknown skill: undefined" en
+  // 6 intentos seguidos con la misma forma mal anidada, antes de que el
+  // modelo la corrigiera solo por prueba y error -- el mensaje de error no
+  // daba ninguna pista de la causa real. Ninguna skill real usa un argumento
+  // llamado "skill", así que si el nivel de arriba no trae skill pero sí hay
+  // un args.arguments.skill (string), es inequívoco: se anidó un nivel de
+  // más. Se desenvuelve automáticamente -- mismo criterio que el fuzzy-route
+  // de nombres de tool más abajo (recuperar solo cuando no hay ambigüedad,
+  // loguear para debug, no forzar al modelo a adivinar la forma a los
+  // tumbos).
+  if (!skillName && args?.arguments && typeof args.arguments === 'object' && typeof args.arguments.skill === 'string') {
+    const { skill: innerSkill, arguments: innerArgs, ...rest } = args.arguments;
+    console.error(`[run_skill] argumentos anidados de más -- desenvolviendo automáticamente ('${innerSkill}')`);
+    skillName = innerSkill;
+    skillArgs = innerArgs && typeof innerArgs === 'object' ? innerArgs : rest;
+  }
+
   const skill = plugin.skills[skillName];
   if (!skill) {
     const names = Object.keys(plugin.skills);
@@ -290,13 +357,31 @@ async function handleRunSkill(plugin, args) {
   }
 }
 
-const help = `Agent Tools runtime\n\n1. agent_tools_help()\n2. agent_tools_exec({ command })\n3. Por cada plugin cargado: agent_tools_<prefix>_discover({ query? }) / agent_tools_<prefix>_call({ toolName, arguments, confirm? }) / agent_tools_<prefix>_run_skill({ skill, arguments })\n\nAvailable adapters via text protocol (load only the one required):\n  commands/generic-mcp.mjs  -> AGENT_MCP_URL, optional AGENT_MCP_TOKEN\n  commands/n8n-mcp.mjs      -> N8N_MCP_URL, optional N8N_MCP_TOKEN/OAuth store\n  commands/rest-api.mjs     -> AGENT_API_BASE_URL, optional AGENT_API_TOKEN\n  commands/local-cli.mjs    -> AGENT_CLI_ALLOWLIST\n\nThe runtime keeps provider credentials on the host and exposes only structured command output.`;
+const HELP_HEADER = `Agent Tools runtime\n\n1. agent_tools_help()\n2. agent_tools_exec({ command })\n3. Por cada plugin cargado: agent_tools_<prefix>_discover({ query? }) / agent_tools_<prefix>_call({ toolName, arguments, confirm? }) / agent_tools_<prefix>_run_skill({ skill, arguments })\n\nAvailable adapters via text protocol (load only the one required):\n  commands/generic-mcp.mjs  -> AGENT_MCP_URL, optional AGENT_MCP_TOKEN\n  commands/n8n-mcp.mjs      -> N8N_MCP_URL, optional N8N_MCP_TOKEN/OAuth store\n  commands/rest-api.mjs     -> AGENT_API_BASE_URL, optional AGENT_API_TOKEN\n  commands/local-cli.mjs    -> AGENT_CLI_ALLOWLIST\n\nThe runtime keeps provider credentials on the host and exposes only structured command output.`;
+
+// Encontrado en vivo: con dos plugins de dominio GitHub cargados a la vez
+// (github vía REST, ghcli vía el binario gh), un agente que ya había elegido
+// "github" para una tarea nunca se enteró de que "ghcli" existía y podía
+// cubrir lo que al primero le faltaba (pr_list) -- discover() es por-plugin,
+// no hay forma de ver el resto desde adentro de uno ya elegido. Listar acá
+// TODOS los plugins cargados (prefix + una línea de qué es cada uno) es el
+// único punto de entrada que sí ve la flota completa de una sola vez, antes
+// de comprometerse a un prefix -- barato porque solo se paga si el agente
+// llama agent_tools_help() explícitamente, no en cada discover().
+function buildHelp(plugins) {
+  const pluginLines = plugins.map((p) => `  ${p.prefix.padEnd(8)} (agent_tools_${p.prefix}_*) -- ${p.description || p.name}`).join('\n');
+  const pluginsSection = plugins.length
+    ? `\n\nPlugins cargados (elegí el prefix que corresponda ANTES de llamar discover -- puede haber más de uno para el mismo dominio, con capacidades distintas):\n${pluginLines}`
+    : '';
+  return `${HELP_HEADER}${pluginsSection}`;
+}
 
 function reply(id, result) { return { jsonrpc: '2.0', id, result }; }
 function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 
 async function main() {
   const plugins = await discoverPlugins();
+  const help = buildHelp(plugins);
   // toolName -> { plugin, kind: 'discover'|'call'|'run_skill' }
   const routes = new Map();
   const tools = [

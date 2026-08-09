@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gh-cli",
+  "version": "0.1.0",
+  "description": "agent-tools-runtime plugin for the GitHub CLI (gh): shells out to a real installed binary instead of talking REST/MCP directly, plus a deterministic repo-overview skill.",
+  "license": "MIT",
+  "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
+  "keywords": ["agent-tools-runtime", "mcp", "github", "cli", "gh"],
+  "extensions": {
+    "dev.agent-tools-runtime": {
+      "prefix": "ghcli",
+      "adapter": "./adapter.mjs",
+      "adapterExport": "GhCliAdapter",
+      "readonlyTools": ["repo_view", "issue_list", "pr_list"],
+      "skills": ["./skills/repo-overview.mjs"],
+      "discoverHint": "Requiere el binario `gh` (GitHub CLI) instalado y autenticado en este host (`gh auth login`; verificá con `gh auth status`). A diferencia de agent-tools-plugin-github (REST) y del resto de los plugins, la autenticación de éste NO se pasa por variable de entorno de este proceso -- vive en la sesión local de `gh` (keyring del SO). Si `gh auth status` falla en este host, ninguna tool de este plugin va a funcionar sin importar qué argumentos le pases. No confundir con agent-tools-plugin-github (prefix 'github'): mismo dominio (GitHub), transporte distinto (CLI vs REST API v3 directa) -- son dos plugins separados a propósito."
+    }
+  }
+}

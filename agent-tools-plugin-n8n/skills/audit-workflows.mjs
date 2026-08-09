@@ -28,6 +28,11 @@ const PYTHON_BIN = process.env.N8N_AUDIT_PYTHON_BIN || 'python3';
 
 const VALID_MODES = new Set(['audit', 'summary', 'export', 'nativeAudit', 'executions', 'credentials']);
 
+export const meta = {
+  description: 'Audita workflows de n8n: reglas de seguridad/robustez, resumen, auditoría nativa de n8n, salud de ejecuciones, uso de credenciales, o export a disco -- un modo por llamada.',
+  args: 'mode?: "audit"(default,7 reglas)|"summary"|"nativeAudit"|"executions"|"credentials"|"export"(requiere exportDir). all?:true trae inactivos también (default true). page?/pageSize? paginan el resultado.',
+};
+
 // audit_n8n_workflows.py returns the full result in one shot -- on an instance with
 // hundreds of workflows that's tens of KB in a single array, awkward for a calling
 // agent to consume (a real run against 355 workflows produced a 48KB "summary" that
@@ -66,6 +71,28 @@ export async function run(_adapter, args) {
 
   if (!process.env.N8N_API_KEY) {
     return { isError: true, error: 'audit-workflows requiere N8N_API_KEY en el entorno del proceso del runtime (API key REST de n8n, distinta del token MCP -- se genera en Settings > n8n API).' };
+  }
+
+  // Encontrado en vivo: un modelo llamó run_skill con
+  // { arguments: { args: { mode: "nativeAudit" } } } -- un nivel de anidamiento
+  // de más, dejando args.mode undefined en vez de "nativeAudit". Como el
+  // default silencioso de mode era 'audit', tres llamadas seguidas con
+  // mode:"nativeAudit"/"executions"/"credentials" devolvieron el mismo reporte
+  // genérico sin ningún error -- el modelo tuvo que notar el problema él solo
+  // comparando outputs idénticos, y ni así se recuperó (terminó usando tools
+  // crudas en su lugar). Si mode falta pero hay un args.args anidado con
+  // alguno de los campos reales de esta skill adentro, es casi seguro ese
+  // mismo error de forma -- avisar explícito en vez de caer en silencio al
+  // default.
+  const RECOGNIZED_ARGS = ['mode', 'all', 'workflowId', 'exportDir', 'auditCategories', 'daysAbandoned', 'status', 'maxExecutions', 'page', 'pageSize'];
+  if (args?.mode === undefined && args?.args && typeof args.args === 'object' && !Array.isArray(args.args)) {
+    const nestedKeys = Object.keys(args.args).filter((k) => RECOGNIZED_ARGS.includes(k));
+    if (nestedKeys.length) {
+      return {
+        isError: true,
+        error: `Argumentos anidados de más: recibí { args: { ${nestedKeys.join(', ')} } } en vez de { ${nestedKeys.join(', ')} } directo. Pasá mode/all/workflowId/etc. al mismo nivel que 'arguments' en run_skill, sin envolverlos de nuevo en un "args" extra.`,
+      };
+    }
   }
 
   const mode = args?.mode || 'audit';

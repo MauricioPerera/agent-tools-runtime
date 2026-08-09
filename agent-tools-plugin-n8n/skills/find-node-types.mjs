@@ -34,6 +34,11 @@
 // type '...' not found..." como si fuera contenido exitoso mas. Se detecta
 // ese heading especifico ademas del isError real; ninguna respuesta legitima
 // de search_nodes/get_node_types empieza asi.
+export const meta = {
+  description: 'Busca tipos de nodo de n8n por nombre/servicio, o trae su definición TypeScript exacta -- equivalente a search_nodes/get_node_types con validación de argumentos más clara.',
+  args: 'queries:string[] (para buscar) O nodeIds:[{nodeId,resource?,operation?,mode?,version?}] (para tipar) -- no ambos en la misma llamada.',
+};
+
 function looksLikeErrorText(text) {
   return /^\s*#\s*Errors\b/i.test(text || '');
 }

@@ -14,6 +14,11 @@
 
 import { callTool, isFailure } from './_shared.mjs';
 
+export const meta = {
+  description: 'Colapsa validate+create+publish+execute de un workflow SDK en una sola llamada, en vez de encadenar esas tools sueltas a mano.',
+  args: 'code, name (requeridos) -- publish? (default true), execute? (default true, solo aplica si publish). publish:false crea sin activar; execute:false crea+publica sin correrlo.',
+};
+
 function findFailedNode(runData) {
   for (const [nodeName, runs] of Object.entries(runData || {})) {
     const failedRun = (runs || []).find((r) => r.executionStatus === 'error');

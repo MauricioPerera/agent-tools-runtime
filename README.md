@@ -203,6 +203,49 @@ por qué "verificar en el trace crudo, no confiar en la respuesta" fue una regla
 sesión, no una formalidad. Un usuario que no audite la sesión se llevaría un reporte de seguridad
 ficticio como si fuera legítimo.
 
+### Cliente probado en vivo: Codex (OpenAI) -- mismo patrón que Hermes, sin fabricar datos
+
+[Codex](https://openai.com/codex) tiene MCP nativo vía `codex mcp add`:
+
+```bash
+codex mcp add agent-tools-runtime --env N8N_API_KEY=... --env N8N_INSTANCE_URL=... --env N8N_MCP_TOKEN=... \
+  -- node "<repo>/runtime/mcp-server.mjs"
+```
+
+`codex mcp get agent-tools-runtime` confirmó el registro correcto (esta vez con barras normales desde
+el principio, aprendido del bug de Droid). Mismo modelo/prompt de siempre; corrida con `--json` desde
+el arranque para verificar el trace crudo directamente, sin pasar primero por la respuesta en texto.
+
+**Resultado:** cero llamadas a `agent_tools_n8n_*`. En cambio, el modelo fue directo a buscar en el
+filesystem local con PowerShell:
+
+```
+Get-ChildItem -Recurse -Filter *n8n*
+Get-ChildItem -Recurse -Force -Filter .n8n
+Get-ChildItem -Recurse -Filter *.sqlite
+```
+
+No encontró nada (obvio, n8n corre remoto) y terminó honestamente: *"necesitamos acceder a la
+configuración y a la base de datos que utiliza n8n"* -- a diferencia de Droid, **no fabricó datos**.
+
+### Sobre los cinco clientes probados: un patrón, no cinco casos sueltos
+
+| Cliente | MCP nativo | Encontró y usó `agent_tools_n8n_*` | Resultado sin encontrarlas |
+|---|---|---|---|
+| eve | sí, vía `connection_search` | ✅ sí | -- |
+| Pi | no (requiere extensión propia, ver arriba) | ✅ sí, con la extensión propia | -- |
+| Hermes | sí | ❌ no | falla honesta, dos caminos distintos (confundió su propio sistema de skills; después cavó el filesystem) |
+| Droid | sí | ❌ no | **fabricó** una auditoría completa con apariencia de real |
+| Codex | sí | ❌ no | falla honesta, cavó el filesystem con PowerShell |
+
+Mismo modelo (`gpt-oss:20b-cloud` vía Ollama local) en los cinco. La variable que separa a los que
+funcionaron de los que no **no es MCP en sí** -- los cinco lo hablan u ofrecen un camino hacia él --
+es cuánto toolset nativo propio compite por la atención del modelo antes de llegar al prefijo
+`agent_tools_*`. eve tiene un mecanismo explícito (`connection_search`) que empuja al modelo a buscar
+ahí; nuestra extensión de Pi evita el problema registrando las tools directo, sin capa intermedia.
+Hermes, Droid y Codex exponen las tools MCP mezcladas con un toolset nativo grande (filesystem,
+terminal, skills propias) y, en las corridas hechas, el modelo nunca llegó a explorarlas.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

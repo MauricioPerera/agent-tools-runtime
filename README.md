@@ -23,6 +23,71 @@ Adaptadores incluidos:
 - REST/API con rutas relativas y confirmación para mutaciones.
 - CLI local con allowlist, `execFile`, timeout y confirmación.
 
+## Transportes: stdio (default) y Streamable HTTP
+
+`runtime/mcp-server.mjs` habla MCP por stdio -- el caso de uso original y el que sigue sin cambios
+(`npm run mcp`, o `bin/agent-tools-mcp.mjs` si el paquete está instalado). Pero algunos clientes MCP
+no pueden spawnear un subproceso stdio: por ejemplo [eve](https://github.com/vercel/eve) (framework
+de agentes de Vercel), cuyas `connections/*.ts` (`defineMcpClientConnection`) exigen una `url` que
+hable Streamable HTTP o SSE, sin opción de `command`/`args`. Para esos casos existe
+`runtime/mcp-http-server.mjs` (`npm run mcp:http`, o `bin/agent-tools-mcp-http.mjs`), el mismo
+dispatcher (`createMessageHandler()` en `mcp-server.mjs`, extraído para no atarlo a ningún
+transporte) expuesto sobre HTTP en vez de stdin/stdout.
+
+```bash
+export AGENT_TOOLS_HTTP_PORT=8321      # default si se omite
+export AGENT_TOOLS_HTTP_HOST=127.0.0.1 # default -- solo localhost, ver nota de seguridad abajo
+npm run mcp:http
+```
+
+Implementa la variante simple del spec ([2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)):
+una respuesta JSON por request (`Content-Type: application/json`), sin upgrade a SSE -- el catálogo
+de mensajes de este runtime (`initialize`/`tools/list`/`tools/call`) es enteramente request/response,
+sin mensajes server-initiated, así que streaming no aporta nada todavía. Session ID vía
+`Mcp-Session-Id` (emitido en `initialize`, validado en requests siguientes, `404` si no se reconoce),
+protección DNS-rebinding (rechaza `Origin` no-local con `403`), bind a `127.0.0.1` por default. Sin
+batching de mensajes en esta versión -- ningún cliente probado lo necesitó.
+
+### Cliente probado en vivo: eve (Vercel)
+
+[eve](https://github.com/vercel/eve) es un framework de agentes "filesystem-first": herramientas,
+conexiones y skills viven como archivos convencionales bajo `agent/`. Conectarlo a este runtime es
+crear `agent/connections/agent-tools-runtime.ts`:
+
+```ts
+import { defineMcpClientConnection } from "eve/connections";
+
+export default defineMcpClientConnection({
+  url: "http://127.0.0.1:8321/mcp",
+  description: "agent-tools-runtime: typed facades over Ollama, ccdd-gate, n8n, GitHub, PocketBase.",
+});
+```
+
+**Gotcha real encontrado en vivo, no hipotético:** con un modelo fuera del catálogo de AI Gateway
+(en la prueba, Ollama local vía `@ai-sdk/openai-compatible`), eve falla al arrancar con *"Cannot
+compile agent compaction because the primary compaction trigger model ... does not have known AI
+Gateway context window metadata"* -- necesita saber la ventana de contexto del modelo para su feature
+de compaction, y un modelo custom no la trae. Se resuelve declarándola explícita en `agent.ts`:
+
+```ts
+export default defineAgent({
+  model: ollama.chatModel("gpt-oss:20b-cloud"),
+  modelContextWindowTokens: 131072,
+});
+```
+
+**Dos corridas reales, mismo modelo (`gpt-oss:20b-cloud` vía Ollama local), mismo transporte HTTP:**
+
+| | `ollama` (5 tools, 0 skills) | `n8n` (10 skills) |
+|---|---|---|
+| Tools usadas | `discover` + `call` | `run_skill` × 2 (`find-workflows`, después `audit-workflows`) |
+| Decisión del modelo | directa | encadenó dos skills razonando qué le faltaba para responder "configuración riesgosa" sin que nadie se lo indicara |
+| Resultado | tabla correcta de modelos disponibles | hallazgos reales (webhooks sin autenticación, workflows activos sin trigger) + recomendaciones, honesto sobre el corte de la muestra (356 workflows activos, mostró algunos y ofreció ampliar) |
+
+En ambos casos el flujo fue el mismo y sin fricción: `connection_search` (mecanismo propio de eve
+para descubrir tools de una conexión MCP por texto libre) encontró la conexión y las tools/skills
+correctas, verificado en el trace crudo del stream de eventos, no solo en la respuesta final.
+
 ## Fachada tipada y sistema de plugins
 
 Además de la capa de texto (`agent_tools_exec` + `commands/`), `runtime/mcp-server.mjs` expone una

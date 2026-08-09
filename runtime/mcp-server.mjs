@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { handle } from './agent-tools-runtime.mjs';
 import { closestMatches } from './fuzzy-match.mjs';
+import { hintFor } from './error-hints.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FACADE_AUTOROUTE_THRESHOLD = 0.6;
@@ -327,22 +328,22 @@ async function handleCall(plugin, args) {
   const toolArgs = args?.arguments && typeof args.arguments === 'object' ? args.arguments : {};
   const confirm = args?.confirm === true;
 
-  if (!toolName) return jsonContent({ isError: true, error: 'toolName is required' });
+  if (!toolName) return jsonContent({ isError: true, code: 'MISSING_TOOL_NAME', error: 'toolName is required', hint: hintFor('MISSING_TOOL_NAME') });
 
   let tool;
   try {
     tool = await plugin.adapter.describe(toolName);
   } catch {
-    return jsonContent({ isError: true, error: `Unknown ${plugin.name} tool: ${toolName}` });
+    return jsonContent({ isError: true, code: 'UNKNOWN_TOOL', error: `Unknown ${plugin.name} tool: ${toolName}`, hint: hintFor('UNKNOWN_TOOL') });
   }
 
   const schemaErrors = validateArguments(tool.inputSchema, toolArgs);
   if (schemaErrors.length) {
-    return jsonContent({ isError: true, error: 'Argument validation failed', details: schemaErrors, schema: tool.inputSchema });
+    return jsonContent({ isError: true, code: 'ARG_VALIDATION_FAILED', error: 'Argument validation failed', details: schemaErrors, schema: tool.inputSchema, hint: hintFor('ARG_VALIDATION_FAILED') });
   }
 
   if (plugin.requireConfirm && !plugin.readonlyTools.has(toolName) && !confirm) {
-    return jsonContent({ isError: true, error: `Confirmation required for mutating ${plugin.name} tool: ${toolName}. Pass confirm: true.` });
+    return jsonContent({ isError: true, code: 'CONFIRM_REQUIRED', error: `Confirmation required for mutating ${plugin.name} tool: ${toolName}. Pass confirm: true.`, hint: hintFor('CONFIRM_REQUIRED') });
   }
 
   try {
@@ -380,8 +381,8 @@ async function handleRunSkill(plugin, args) {
   const skill = plugin.skills[skillName];
   if (!skill) {
     const names = Object.keys(plugin.skills);
-    const hint = names.length ? ` Skills disponibles: ${names.join(', ')}.` : '';
-    return jsonContent({ isError: true, error: `Unknown skill: ${skillName}.${hint}` });
+    const skillsList = names.length ? ` Skills disponibles: ${names.join(', ')}.` : '';
+    return jsonContent({ isError: true, code: 'UNKNOWN_SKILL', error: `Unknown skill: ${skillName}.${skillsList}`, hint: hintFor('UNKNOWN_SKILL') });
   }
   try {
     const result = await skill.run(plugin.adapter, skillArgs);
@@ -490,11 +491,11 @@ async function main() {
 
       if (resolvedName !== 'agent_tools_exec') {
         const [best] = closestMatches(name || '', facadeToolNames, 1);
-        const hint = best ? ` ¿Quisiste decir: ${best.name}?` : '';
-        return error(message.id, -32602, `Unknown tool: ${name}.${hint}`);
+        const suggestion = best ? ` ¿Quisiste decir: ${best.name}?` : '';
+        return error(message.id, -32602, `Unknown tool: ${name}.${suggestion} ${hintFor('UNKNOWN_FACADE_TOOL')}`);
       }
       const command = args.command;
-      if (typeof command !== 'string' || !command.trim()) return error(message.id, -32602, 'command must be a non-empty string');
+      if (typeof command !== 'string' || !command.trim()) return error(message.id, -32602, `command must be a non-empty string. ${hintFor('EMPTY_COMMAND')}`);
       const loadMatch = command.match(/^load\s+([^\s]+)$/);
       const action = command === 'status'
         ? { action: 'status' }

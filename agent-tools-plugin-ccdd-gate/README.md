@@ -33,6 +33,37 @@ export CCDD_GATE_SCRIPT="D:/repos/ccddgate/ccdd-gate/runners/complexity_mcp.py" 
 `CCDD_EXECUTOR_API`/`CCDD_EXECUTOR_MODEL` en el entorno del proceso Python -- el resto del catalogo
 (analisis AST puro sobre codigo ya escrito) no depende de ningun LLM.
 
+### Usar Ollama (local o cloud) como executor de `run_ephemeral_agent`
+
+`run_ephemeral_agent` solo acepta `task_path` como parametro -- su propia descripcion lo dice
+literal: *"EL MODELO Y EL ENDPOINT LOS DECIDE EL SERVIDOR"*. El executor se fija via
+`CCDD_EXECUTOR_API`/`CCDD_EXECUTOR_MODEL`, leidas por el proceso Python al arrancar. Como
+`CcddGateAdapter.ensureStarted()` spawnea `python <script>` sin pasar un `env` explicito, el
+subproceso hereda **todo** el entorno del proceso Node del runtime -- asi que apuntar el executor a
+Ollama es config pura, cero cambios de codigo en este plugin ni en `agent-tools-plugin-ollama`:
+
+```bash
+export CCDD_EXECUTOR_API="http://localhost:11434/v1"    # Ollama local, endpoint OpenAI-compatible
+export CCDD_EXECUTOR_MODEL="qwen2.5:1.5b"                # o cualquier modelo con capability "completion"
+
+# Ollama Cloud (https://docs.ollama.com/cloud), en vez de local:
+export CCDD_EXECUTOR_API="https://ollama.com/v1"
+export CCDD_EXECUTOR_MODEL="gpt-oss:20b"
+# (la key va en el bearer token que ese endpoint espera -- ver docs de Ollama Cloud)
+```
+
+**Verificado en vivo, no solo hipotetico:** contrato CCDD minimo (`add-two`, del ejemplo del propio
+server), stub que falla los 4 tests congelados, `run_ephemeral_agent` con `CCDD_EXECUTOR_MODEL`
+apuntando a `qwen2.5:1.5b` local -- PASS en 1 iteracion, 8 segundos. Confirmado de forma
+independiente corriendo `pytest` a mano sobre el archivo real que quedo en disco, no solo leyendo el
+`gate_output` que devuelve la tool.
+
+**Limitacion real, no cosmetica:** el executor queda fijo para toda la sesion del runtime, no es algo
+que el agente orquestador elija contrato por contrato -- mismo tipo de restriccion "fijo al spawn del
+proceso" que tiene `run_rules_gate` con su `rules.yaml` (ver skill `quality-gate-check` mas abajo).
+Si un dia hace falta elegir executor por tarea, hay que resolverlo en otra capa (multiples instancias
+del adapter con distinto entorno, por ejemplo) -- no es un parametro que este tool vaya a aceptar.
+
 ## Tools expuestas
 
 Con `prefix: "ccdd"`, el runtime genera:

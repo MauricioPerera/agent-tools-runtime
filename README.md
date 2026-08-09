@@ -135,6 +135,43 @@ integración) y medir si el contrato de adapter (`listTools`/`search`/`describe`
 El formato del manifest y el loader dinámico ya están probados con varios plugins reales cargando a la
 vez sin tocar `mcp-server.mjs` — agregar uno nuevo es crear el directorio, no editar el runtime.
 
+## Arquitectura de discoverabilidad
+
+Esto no es un sustituto de MCP — hacia el agente sigue hablando el protocolo tal cual, y varios adapters
+lo hablan hacia adentro también (n8n, kite-lite). Lo que cambia es el supuesto que trae implícito el uso
+típico de MCP: que exponer capacidad es declarar una lista plana y completa de tools, cargada entera en
+cada turno. Acá la capacidad real vive detrás de un índice barato (`discover`/`call`/`run_skill`, 3 tools
+fijas por plugin sin importar si el backend tiene 4 endpoints o 30), y se resuelve bajo demanda — mismo
+principio que `ToolSearch` sobre esta propia sesión. Eso separa "cuánto cuesta tener la capacidad
+conectada" de "cuánto cuesta que el agente la vea", pero ese ahorro tiene un precio: una capacidad que no
+se declara de antemano solo se usa si alguien la busca. Lo de abajo es el mapa de esa contrapartida,
+capa por capa, con qué tan probado está cada mecanismo.
+
+| Capa | Qué resuelve | Mecanismo | Cuándo se paga el costo |
+|---|---|---|---|
+| Nombre de skill | Que existe una receta para la tarea | Listado estático en la descripción de `run_skill` | Siempre — barato, fijo, no depende de que el agente pregunte nada |
+| Forma de una skill | Argumentos/modos que acepta (ej. `mode:"nativeAudit"`) | `meta` por skill, indexado por `discover({ query })` | Solo si hay `query` — el modo "listar sin filtro" queda igual de barato que antes |
+| Otros plugins del mismo dominio | Que existe una alternativa con capacidades distintas (ej. `github` vs `gh-cli`) | `agent_tools_help()` lista todos los plugins cargados; cada `discover` lo menciona en su propia descripción | Solo si el agente llama `help()` explícitamente |
+| — (no es una capa, es el techo) | — | Acceso a shell directo al mismo backend que un plugin envuelve | Gratis para el agente, y le gana a las tres capas de arriba cuando existe |
+
+**Nivel de confianza real en cada fila, no solo la intención de diseño:**
+
+- **Forma de skill (fila 2): confirmado con A/B en vivo.** Mismo prompt, mismo modelo, antes/después del
+  fix — sin él, tres llamadas seguidas a `mode:"nativeAudit"`/`"executions"`/`"credentials"` devolvían en
+  silencio el mismo reporte genérico (el argumento quedaba mal anidado y el default absorbía el error);
+  con él, un error explícito señala la forma correcta y el modelo se corrige en el primer reintento en
+  vez de reconstruir todo a mano con tools sueltas.
+- **Otros plugins (fila 3): probado, pero más débil de lo que parece.** Funciona *si* el agente llega a
+  llamar `discover` con query o `help()` — nunca se aisló si el aviso de texto es la causa real de que un
+  agente encuentre el plugin correcto, o si el modelo simplemente asocia el nombre por su cuenta. Y en una
+  corrida real, el agente jamás llamó ni `discover` ni `help()`: fue directo a resolver la tarea por otro
+  camino, así que el aviso nunca tuvo la oportunidad de leerse.
+- **El techo: confirmado, no es hipotético.** Mismo modelo, misma tarea, mismo plugin: con shell
+  disponible, ignoró todo el sistema de plugins y llamó al binario subyacente directo; sin shell
+  disponible, usó el plugin y encontró la skill correcta sin que nadie la nombrara. Estas tres capas
+  funcionan como discoverabilidad real solo en un entorno donde el agente no tiene una ruta más corta —
+  no son una frontera de seguridad ni de control, son la ruta ganadora únicamente cuando es la única.
+
 ## Desarrollo
 
 Requisitos: Node.js `>=20.18.1`.

@@ -24,7 +24,7 @@
     "directory": "agent-tools-plugin-gh-cli"
   },
   "peerDependencies": {
-    "@rckflr/agent-tools-runtime": ">=0.2.2"
+    "@rckflr/agent-tools-runtime": ">=0.2.3"
   },
   "files": [
     "README.md",

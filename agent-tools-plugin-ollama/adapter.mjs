@@ -75,31 +75,119 @@ const TOOLS = [
     description: 'Descarga un modelo al disco local. Puede tardar minutos (modelo grande = descarga grande). Muta estado (disco), requiere confirm.',
     inputSchema: { type: 'object', properties: { model: { type: 'string' } }, required: ['model'] },
   },
+  {
+    name: 'start_generate',
+    description: 'Igual que generate, pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Usalo cuando el modelo puede tardar (cloud grande, modelos que razonan mucho) y no querés bloquear la llamada. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        model: { type: 'string' },
+        prompt: { type: 'string' },
+        system: { type: 'string' },
+      },
+      required: ['model', 'prompt'],
+    },
+  },
+  {
+    name: 'start_chat',
+    description: 'Igual que chat, pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        model: { type: 'string' },
+        messages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { role: { type: 'string' }, content: { type: 'string' } },
+            required: ['role', 'content'],
+          },
+        },
+      },
+      required: ['model', 'messages'],
+    },
+  },
+  {
+    name: 'job_status',
+    description: 'Estado de un job lanzado con start_generate/start_chat: "running" (todavía generando, no está muerto), "done" (con el resultado) o "error" (con el mensaje). Incluye elapsedMs para saber cuánto lleva corriendo. El tracking vive en memoria del proceso runtime -- se pierde si el server MCP se reinicia (el request en sí sigue su curso del lado de Ollama, pero se pierde la referencia).',
+    inputSchema: { type: 'object', properties: { jobId: { type: 'string' } }, required: ['jobId'] },
+  },
+  {
+    name: 'list_jobs',
+    description: 'Lista todos los jobs trackeados en esta sesión (running/done/error), más recientes primero.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'cancel_job',
+    description: 'Aborta un job "running" (via AbortController sobre el fetch). No hace nada si ya terminó. Requiere confirm.',
+    inputSchema: { type: 'object', properties: { jobId: { type: 'string' } }, required: ['jobId'] },
+  },
 ];
 
 function textContent(payload) {
   return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
 }
 
+function formatGenerate(data) {
+  return {
+    model: data.model, response: data.response, done: data.done,
+    total_duration_ms: data.total_duration ? Math.round(data.total_duration / 1e6) : undefined,
+    eval_count: data.eval_count,
+  };
+}
+
+function formatChat(data) {
+  return {
+    model: data.model, message: data.message, done: data.done,
+    total_duration_ms: data.total_duration ? Math.round(data.total_duration / 1e6) : undefined,
+    eval_count: data.eval_count,
+  };
+}
+
+let jobCounter = 0;
+
 export class OllamaAdapter {
   constructor({ baseUrl, apiKey = process.env.OLLAMA_API_KEY } = {}) {
     this.apiKey = apiKey;
     this.baseUrl = resolveBaseUrl({ baseUrl, apiKey });
+    // Tracking en memoria de esta instancia -- se pierde si el proceso
+    // runtime se reinicia (documentado en la description de job_status).
+    this.jobs = new Map();
   }
 
-  async request(method, path, body) {
+  async request(method, path, body, { signal } = {}) {
     const headers = body ? { 'Content-Type': 'application/json' } : {};
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     const response = await fetch(`${this.baseUrl}${path}`, {
       method,
       headers: Object.keys(headers).length ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     });
     const text = await response.text();
     let payload;
     try { payload = JSON.parse(text); } catch { payload = { raw: text }; }
     if (!response.ok) throw new Error(`ollama API ${response.status}: ${payload?.error || text}`);
     return payload;
+  }
+
+  // Dispara `path`/`body` SIN esperarlo, guarda el job en this.jobs, y
+  // devuelve el jobId al toque. `format` mapea la respuesta cruda de Ollama
+  // al mismo shape que devuelve la tool sincrona equivalente (generate/chat).
+  startJob(path, body, format) {
+    const jobId = `job_${Date.now()}_${++jobCounter}`;
+    const controller = new AbortController();
+    const job = { jobId, status: 'running', startedAt: Date.now(), finishedAt: null, result: null, error: null, controller };
+    this.jobs.set(jobId, job);
+    this.request('POST', path, body, { signal: controller.signal })
+      .then((data) => { job.status = 'done'; job.finishedAt = Date.now(); job.result = format(data); })
+      .catch((e) => { job.status = e.name === 'AbortError' ? 'cancelled' : 'error'; job.finishedAt = Date.now(); job.error = e.message; });
+    return jobId;
+  }
+
+  jobView(job) {
+    const elapsedMs = (job.finishedAt || Date.now()) - job.startedAt;
+    return { jobId: job.jobId, status: job.status, elapsedMs, result: job.result, error: job.error };
   }
 
   async listTools() { return { tools: TOOLS }; }
@@ -139,25 +227,40 @@ export class OllamaAdapter {
       const data = await this.request('POST', '/api/generate', {
         model: a.model, prompt: a.prompt, system: a.system, stream: false,
       });
-      return textContent({
-        model: data.model, response: data.response, done: data.done,
-        total_duration_ms: data.total_duration ? Math.round(data.total_duration / 1e6) : undefined,
-        eval_count: data.eval_count,
-      });
+      return textContent(formatGenerate(data));
     }
     if (name === 'chat') {
       const data = await this.request('POST', '/api/chat', {
         model: a.model, messages: a.messages, stream: false,
       });
-      return textContent({
-        model: data.model, message: data.message, done: data.done,
-        total_duration_ms: data.total_duration ? Math.round(data.total_duration / 1e6) : undefined,
-        eval_count: data.eval_count,
-      });
+      return textContent(formatChat(data));
     }
     if (name === 'pull_model') {
       const data = await this.request('POST', '/api/pull', { model: a.model, stream: false });
       return textContent(data);
+    }
+    if (name === 'start_generate') {
+      const jobId = this.startJob('/api/generate', { model: a.model, prompt: a.prompt, system: a.system, stream: false }, formatGenerate);
+      return textContent({ jobId, status: 'running' });
+    }
+    if (name === 'start_chat') {
+      const jobId = this.startJob('/api/chat', { model: a.model, messages: a.messages, stream: false }, formatChat);
+      return textContent({ jobId, status: 'running' });
+    }
+    if (name === 'job_status') {
+      const job = this.jobs.get(a.jobId);
+      if (!job) throw new Error(`Unknown jobId: ${a.jobId}`);
+      return textContent(this.jobView(job));
+    }
+    if (name === 'list_jobs') {
+      const jobs = [...this.jobs.values()].sort((x, y) => y.startedAt - x.startedAt).map((j) => this.jobView(j));
+      return textContent(jobs);
+    }
+    if (name === 'cancel_job') {
+      const job = this.jobs.get(a.jobId);
+      if (!job) throw new Error(`Unknown jobId: ${a.jobId}`);
+      if (job.status === 'running') job.controller.abort();
+      return textContent(this.jobView(job));
     }
     throw new Error(`Unknown ollama tool: ${name}`);
   }

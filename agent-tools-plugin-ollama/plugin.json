@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ollama",
-  "version": "0.1.1",
-  "description": "agent-tools-runtime plugin for Ollama's REST API: list/pull models and run single-shot generate/chat completions against a local server or Ollama Cloud.",
+  "version": "0.1.2",
+  "description": "agent-tools-runtime plugin for Ollama's REST API: list/pull models, single-shot generate/chat completions, and async jobs (start_generate/start_chat + job_status) for calls that take a while, against a local server or Ollama Cloud.",
   "license": "MIT",
   "repository": "https://github.com/MauricioPerera/agent-tools-runtime",
   "keywords": ["agent-tools-runtime", "rest-api", "ollama", "llm"],
@@ -11,9 +11,9 @@
       "prefix": "ollama",
       "adapter": "./adapter.mjs",
       "adapterExport": "OllamaAdapter",
-      "readonlyTools": ["list_models", "list_running_models"],
+      "readonlyTools": ["list_models", "list_running_models", "job_status", "list_jobs"],
       "skills": [],
-      "discoverHint": "Por default apunta a un server de Ollama local (OLLAMA_URL, default http://localhost:11434, sin auth). Si se configura OLLAMA_API_KEY sin OLLAMA_URL, apunta a Ollama Cloud (https://ollama.com) en vez de requerir Ollama instalado -- ver https://docs.ollama.com/cloud. generate/chat siempre corren con stream:false (respuesta completa de una, no streaming) y requieren confirm: true al costar cómputo/tiempo real, igual que pull_model al bajar un modelo a disco."
+      "discoverHint": "Por default apunta a un server de Ollama local (OLLAMA_URL, default http://localhost:11434, sin auth). Si se configura OLLAMA_API_KEY sin OLLAMA_URL, apunta a Ollama Cloud (https://ollama.com) en vez de requerir Ollama instalado -- ver https://docs.ollama.com/cloud. generate/chat siempre corren con stream:false y requieren confirm. Para modelos que puedan tardar (cloud grande, modelos que razonan mucho), usá start_generate/start_chat en vez de generate/chat: devuelven un jobId al toque y consultás el resultado con job_status -- no bloquean la llamada. El tracking de jobs vive en memoria del proceso runtime, se pierde si se reinicia."
     }
   }
 }

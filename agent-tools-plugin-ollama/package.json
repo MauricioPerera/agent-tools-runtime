@@ -1,8 +1,8 @@
 {
   "name": "agent-tools-plugin-ollama",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Ollama plugin for agent-tools-runtime: typed facade over Ollama's REST API (list/pull models, single-shot generate/chat completions), local by default or Ollama Cloud via OLLAMA_API_KEY. No MCP.",
+  "description": "Ollama plugin for agent-tools-runtime: typed facade over Ollama's REST API (list/pull models, single-shot generate/chat, async jobs for slow calls), local by default or Ollama Cloud via OLLAMA_API_KEY. No MCP.",
   "license": "MIT",
   "publishConfig": {
     "access": "public"

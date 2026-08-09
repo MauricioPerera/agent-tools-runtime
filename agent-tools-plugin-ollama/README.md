@@ -61,12 +61,31 @@ Catálogo de `toolName` disponibles vía `_call`:
 |---|---|---|
 | `list_models` | Lista modelos disponibles localmente (descargados o cloud-linked), con `capabilities` | No |
 | `list_running_models` | Lista modelos cargados en memoria ahora mismo | No |
-| `generate` | Completion de una sola pasada (prompt → texto), sin historial | **Sí — requiere `confirm: true`** |
-| `chat` | Completion con historial de mensajes (`role`/`content`) | **Sí — requiere `confirm: true`** |
+| `generate` | Completion de una sola pasada (prompt → texto), sin historial. Espera la respuesta completa. | **Sí — requiere `confirm: true`** |
+| `chat` | Completion con historial de mensajes (`role`/`content`). Espera la respuesta completa. | **Sí — requiere `confirm: true`** |
 | `pull_model` | Descarga un modelo al disco — puede tardar minutos | **Sí — requiere `confirm: true`** |
+| `start_generate` | Como `generate`, pero no espera: dispara el request y devuelve `{jobId}` al toque | **Sí — requiere `confirm: true`** |
+| `start_chat` | Como `chat`, pero no espera: dispara el request y devuelve `{jobId}` al toque | **Sí — requiere `confirm: true`** |
+| `job_status` | Estado de un job (`running`/`done`/`error`/`cancelled`) más `elapsedMs` y el resultado si ya terminó | No |
+| `list_jobs` | Lista todos los jobs trackeados en esta sesión, más recientes primero | No |
+| `cancel_job` | Aborta un job `running` (vía `AbortController`) | **Sí — requiere `confirm: true`** |
 
 `generate`/`chat` siempre corren con `stream:false` (respuesta completa de una, no streaming) para
 mantener el contrato simple de request/response del plugin.
+
+### Jobs asíncronos: `start_generate`/`start_chat` + `job_status`
+
+Pensado para el caso donde un modelo puede tardar bastante en responder (un modelo cloud grande, o
+uno con mucho razonamiento interno — ver el caso real de `prism-ml/bonsai-27b` quemando ~9 minutos y
+3947 tokens de "pensamiento" en una pregunta trivial, documentado en el README raíz) y no querés que
+la llamada quede bloqueada esperando. En vez de `generate`/`chat` (síncronos), usá
+`start_generate`/`start_chat`: devuelven `{jobId}` de inmediato, sin esperar nada, y consultás el
+resultado después con `job_status({jobId})` — que te dice si sigue `running` (viva, no colgada),
+`done` (con el resultado) o `error`.
+
+El tracking de jobs vive **en memoria del proceso runtime**, no en disco ni en Ollama — si el server
+MCP se reinicia, se pierde la referencia al job (aunque el request en sí siga su curso del lado de
+Ollama). No hay expiración/limpieza automática de jobs viejos en esta primera versión.
 
 ## Skills
 

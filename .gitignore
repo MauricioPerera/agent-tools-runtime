@@ -6,3 +6,4 @@ npm-debug.log*
 .mcp.json
 /skills/
 /DeleteInactiveWorkflows.ps1
+/.poolside/

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { GenericMcpAdapter } from '../adapters/generic-mcp.mjs';
 import { RestApiAdapter } from '../adapters/rest-api.mjs';
 import { LocalCliAdapter } from '../adapters/local-cli.mjs';
+import { StdioMcpAdapter } from '../adapters/stdio-mcp.mjs';
 
 function startMockMcp() {
   const requests = [];
@@ -100,6 +101,47 @@ test('local CLI adapter requires an allowlist and explicit confirmation', async 
   assert.equal(failed.exitCode, 7);
 });
 
+const stdioFixture = fileURLToPath(new URL('./stdio-mcp-fixture.mjs', import.meta.url));
+
+test('stdio MCP adapter spawns a real process and speaks newline-delimited JSON-RPC', async (t) => {
+  const adapter = new StdioMcpAdapter({ command: process.execPath, args: [stdioFixture] });
+  t.after(() => adapter.close());
+  const found = await adapter.search('echo');
+  assert.equal(found.matches[0].name, 'echo');
+  const described = await adapter.describe('echo');
+  assert.deepEqual(described.inputSchema, { type: 'object', properties: { text: { type: 'string' } } });
+  const called = await adapter.call('echo', { text: 'hi' });
+  assert.deepEqual(JSON.parse(called.content[0].text), { text: 'hi' });
+});
+
+test('stdio MCP adapter rejects a call to an unknown command', async () => {
+  const adapter = new StdioMcpAdapter({ command: 'this-command-does-not-exist-anywhere' });
+  await assert.rejects(() => adapter.listTools(), /stdio-mcp:/);
+});
+
+test('stdio MCP adapter surfaces a process crash to any pending request', async () => {
+  const adapter = new StdioMcpAdapter({ command: process.execPath, args: [stdioFixture, 'crash'] });
+  await assert.rejects(() => adapter.listTools(), /exited/);
+});
+
+test('stdio MCP adapter times out a request that never gets a response', async (t) => {
+  const adapter = new StdioMcpAdapter({ command: process.execPath, args: [stdioFixture, 'slow'], timeoutMs: 200 });
+  t.after(() => adapter.close());
+  await assert.rejects(() => adapter.call('echo', {}), /timed out after 200ms/);
+});
+
+test('stdio MCP adapter respawns after the process dies instead of staying dead', async (t) => {
+  const adapter = new StdioMcpAdapter({ command: process.execPath, args: [stdioFixture] });
+  t.after(() => adapter.close());
+  await adapter.listTools(); // starts the process
+  adapter.proc.kill(); // simulate an external crash, not one this adapter caused
+  await new Promise((resolve) => setTimeout(resolve, 100)); // let the 'exit' handler run
+  assert.equal(adapter.proc, null);
+  // ensureStarted() must spawn a fresh process here, not reuse the dead one.
+  const found = await adapter.search('echo');
+  assert.equal(found.matches[0].name, 'echo');
+});
+
 test('runtime probe reports requested CLI availability without executing it', () => {
   const script = fileURLToPath(new URL('../scripts/runtime_probe.mjs', import.meta.url));
   const result = spawnSync(process.execPath, [script], {
@@ -119,7 +161,7 @@ test('runtime status exposes adapter catalog without loading adapters', () => {
   assert.equal(result.status, 0);
   const status = JSON.parse(result.stdout);
   assert.deepEqual(status.data.commands, []);
-  assert.deepEqual(status.data.availableAdapters.map(({ name }) => name), ['generic-mcp', 'n8n-mcp', 'rest-api', 'local-cli']);
+  assert.deepEqual(status.data.availableAdapters.map(({ name }) => name), ['generic-mcp', 'n8n-mcp', 'rest-api', 'local-cli', 'stdio-mcp']);
 });
 
 test('MCP facade exposes generic tools plus the typed facade generated from the n8n plugin', async (t) => {

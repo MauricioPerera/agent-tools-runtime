@@ -13,6 +13,7 @@ const availableAdapters = [
   { name: 'n8n-mcp', module: 'commands/n8n-mcp.mjs', env: ['N8N_MCP_URL', 'N8N_MCP_TOKEN'] },
   { name: 'rest-api', module: 'commands/rest-api.mjs', env: ['AGENT_API_BASE_URL', 'AGENT_API_TOKEN'] },
   { name: 'local-cli', module: 'commands/local-cli.mjs', env: ['AGENT_CLI_ALLOWLIST'] },
+  { name: 'stdio-mcp', module: 'commands/stdio-mcp.mjs', env: ['AGENT_STDIO_MCP_COMMAND', 'AGENT_STDIO_MCP_ARGS', 'AGENT_STDIO_MCP_ENV', 'AGENT_STDIO_MCP_CWD', 'AGENT_STDIO_MCP_TIMEOUT_MS'] },
 ];
 let bash = null;
 let bashImportError = null;

@@ -12,8 +12,8 @@
       "adapter": "./adapter.mjs",
       "adapterExport": "OllamaAdapter",
       "readonlyTools": ["list_models", "list_running_models", "job_status", "list_jobs"],
-      "skills": [],
-      "discoverHint": "Por default apunta a un server de Ollama local (OLLAMA_URL, default http://localhost:11434, sin auth). Si se configura OLLAMA_API_KEY sin OLLAMA_URL, apunta a Ollama Cloud (https://ollama.com) en vez de requerir Ollama instalado -- ver https://docs.ollama.com/cloud. generate/chat siempre corren con stream:false y requieren confirm. Para modelos que puedan tardar (cloud grande, modelos que razonan mucho), usá start_generate/start_chat en vez de generate/chat: devuelven un jobId al toque y consultás el resultado con job_status -- no bloquean la llamada. El tracking de jobs vive en memoria del proceso runtime, se pierde si se reinicia."
+      "skills": ["./skills/vision_chat.mjs", "./skills/ocr.mjs", "./skills/grounding.mjs"],
+      "discoverHint": "Por default apunta a un server de Ollama local (OLLAMA_URL, default http://localhost:11434, sin auth). Si se configura OLLAMA_API_KEY sin OLLAMA_URL, apunta a Ollama Cloud (https://ollama.com) en vez de requerir Ollama instalado -- ver https://docs.ollama.com/cloud. generate/chat siempre corren con stream:false y requieren confirm. Para modelos que puedan tardar (cloud grande, modelos que razonan mucho), usá start_generate/start_chat en vez de generate/chat: devuelven un jobId al toque y consultás el resultado con job_status -- no bloquean la llamada. El tracking de jobs vive en memoria del proceso runtime, se pierde si se reinicia. Las skills vision_chat/ocr/grounding envuelven chat() con un solo mensaje + imagen y un prompt fijo por tarea -- ninguna reemplaza a QwenLM/Qwen-MM-Plugins (esa API llama a Qwen vía DashScope), son el equivalente funcional armado sobre gemma4:cloud vía Ollama, verificado en vivo con imágenes reales antes de escribirse, no asumido. Las tres exigen confirm:true (mismo motivo que chat/generate: cómputo real) y un modelo con capability \"vision\" (ver list_models) -- sin esa capability Ollama ignora la imagen en silencio."
     }
   }
 }

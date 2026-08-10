@@ -102,9 +102,34 @@ Ollama). No hay expiración/limpieza automática de jobs viejos en esta primera 
 
 ## Skills
 
-Ninguna todavía — arranca como facade REST puro sobre las 5 tools de arriba. Igual que los demás
-plugins de este repo, una skill se agrega solo si el uso real muestra fricción concreta que valga
-la pena colapsar en una sola llamada.
+Tres, todas envolviendo `chat` con un solo mensaje (prompt fijo por tarea + una imagen) — el
+equivalente funcional a las capacidades `core` de
+[QwenLM/Qwen-MM-Plugins](https://github.com/QwenLM/Qwen-MM-Plugins) (`vision_chat`/`ocr`/`grounding`),
+pero armadas sobre Ollama en vez de la API DashScope de Qwen. Ninguna reemplaza esa API — es la
+alternativa cuando el modelo que ya tenés corriendo (`gemma4:cloud` u otro con capability `"vision"`)
+alcanza. Las tres exigen `confirm: true` (mismo motivo que `chat`/`generate`: cómputo real) y fallan
+claro si el `image` o los demás argumentos requeridos faltan.
+
+- **`vision_chat({ image, question, model?, confirm })`** — pregunta libre sobre una imagen: qué hay,
+  describir, comparar, contar objetos. Devuelve `{ model, answer }`. Verificado en vivo contra
+  `gemma4:cloud` con una imagen sintética (círculo rojo, borde negro, texto "CAT" en azul) — contestó
+  color y texto correctos.
+- **`ocr({ image, model?, confirm })`** — extrae todo el texto visible, verbatim (sin resumir ni
+  corregir). Devuelve `{ model, text }` (`text: ""` si no hay texto, no el string literal que le pide
+  al modelo internamente). Verificado en vivo: extrajo "CAT" solo, sin comentario extra, de la misma
+  imagen de prueba; devolvió `""` limpio contra una imagen sin texto.
+- **`grounding({ image, target, width, height, model?, confirm })`** — encuentra un objeto por
+  descripción libre y devuelve su bounding box en píxeles. `width`/`height` (las dimensiones reales de
+  la imagen) son **requeridos** — sin ellos el modelo no tiene escala contra la cual reportar
+  coordenadas. Devuelve `{ found: true, box: {x_min, y_min, x_max, y_max} }` o `{ found: false }` si el
+  objeto no aparece — no alucina coordenadas cuando no encuentra nada (verificado). `gemma4:cloud`
+  tiende a envolver su respuesta en un fence ` ```json ` aunque el prompt le pida explícitamente que no
+  lo haga; la skill lo pela antes de parsear, no confía en que el prompt alcance solo.
+
+  Verificado en vivo dos veces antes de escribir la skill, no asumido: (1) imagen 200×200 con un solo
+  círculo rojo — devolvió `{30,30,170,170}`, exacto contra el box real; (2) imagen 300×300 con un
+  círculo rojo Y un cuadrado azul, pidiendo específicamente el azul — devolvió `{180,150,260,230}`,
+  exacto también, y discriminó la forma correcta entre dos presentes en la imagen.
 
 ## Licencia
 

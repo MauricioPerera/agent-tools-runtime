@@ -542,9 +542,18 @@ por plugin, no un flag global del runtime. Hoy lo hace `agent-tools-plugin-n8n`
 
 ## Integraciones
 
-El plugin para Claude Code y Codex se mantiene en el marketplace como una capa
-de distribución. Este repositorio contiene el runtime canónico y no depende de
-los manifests específicos de ningún cliente.
+Distinto de los **plugins** (extienden lo que el runtime puede hacer, ver la tabla más arriba): las
+integraciones de esta sección son conectores del lado del **cliente** -- código que corre dentro de
+otro agente para que ese agente pueda llegar a este runtime. Publicadas hasta ahora:
+
+| Integración | Cliente | Cómo se instala | Notas |
+|---|---|---|---|
+| [`agent-tools-runtime-pi-extension`](integrations/pi-extension) | [Pi](https://pi.dev) | `pi install npm:agent-tools-runtime-pi-extension` | Paquete real de Pi -- no depende de MCP ni de `pi-mcp-adapter`, ver la sección de Pi arriba |
+| Snippet de `defineMcpClientConnection` | [eve](https://github.com/vercel/eve) | copiar el bloque a `agent/connections/agent-tools-runtime.ts` (ver arriba) | No es un paquete publicado -- eve resuelve MCP nativo, no hace falta código extra propio |
+
+El plugin para Claude Code y Codex del marketplace ([TheHumanInTheLoop Marketplace](https://mauricioperera.github.io/thehumanintheloop-marketplace-codex/))
+sigue siendo una capa de distribución aparte. Este repositorio contiene el runtime canónico y no
+depende de los manifests específicos de ningún cliente.
 
 ## Licencia
 

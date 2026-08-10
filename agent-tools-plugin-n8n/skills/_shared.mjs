@@ -84,3 +84,35 @@ export async function fetchAllWorkflows(url, apiKey) {
   } while (cursor);
   return all;
 }
+
+/** Igual patron que fetchAllWorkflows (REST /api/v1/executions, cursor real,
+ * a diferencia de search_executions via MCP que tope en limit<=200 sin
+ * paginacion que funcione). A diferencia de workflows -- que en una instancia
+ * real son a lo sumo miles -- las ejecuciones pueden estar en el orden de
+ * millones (IDs de ejecucion ya en ~4.5M en esta instancia), asi que esta
+ * funcion SIEMPRE tiene un tope (maxFetch, default 500) para no traer todo
+ * el historial a memoria por accidente; quien la llama decide si necesita
+ * mas, nunca "todo" por default. */
+export async function fetchExecutions(url, apiKey, { status, workflowId, maxFetch = 500 } = {}) {
+  const headers = { accept: 'application/json', 'X-N8N-API-KEY': apiKey };
+  let all = [];
+  let cursor = null;
+  do {
+    const params = new URLSearchParams({ limit: '100' });
+    if (status) params.set('status', status);
+    if (workflowId) params.set('workflowId', workflowId);
+    if (cursor) params.set('cursor', cursor);
+    const resp = await fetch(`${url}/api/v1/executions?${params.toString()}`, { headers });
+    let body = null;
+    try { body = await resp.json(); } catch { /* respuesta no-JSON, body queda null */ }
+    if (!resp.ok) {
+      const error = new Error(body?.message || `HTTP ${resp.status}`);
+      error.status = resp.status;
+      error.raw = body;
+      throw error;
+    }
+    all = all.concat(body?.data || []);
+    cursor = body?.nextCursor || null;
+  } while (cursor && all.length < maxFetch);
+  return { executions: all.slice(0, maxFetch), truncated: all.length >= maxFetch && !!cursor };
+}

@@ -73,6 +73,19 @@ Catálogo de `toolName` disponibles vía `_call`:
 `generate`/`chat` siempre corren con `stream:false` (respuesta completa de una, no streaming) para
 mantener el contrato simple de request/response del plugin.
 
+### Visión: `images` en `generate`/`chat` (y sus versiones `start_*`)
+
+`generate({ model, prompt, images? })` e `chat({ model, messages: [{role, content, images?}] })`
+aceptan imágenes — `images` es un array de strings en **base64 puro** (sin el prefijo
+`data:image/...;base64,`), una por elemento. En `generate` va a nivel del request; en `chat` va
+por mensaje (así una conversación puede tener algunos mensajes con imagen y otros sin). Solo tiene
+efecto real con un modelo que declare `"vision"` en su `capabilities` (`list_models` lo muestra) —
+con un modelo sin esa capability, Ollama la ignora en silencio, no es un error.
+
+Verificado en vivo contra `gemma4:cloud` (`capabilities: [completion, thinking, tools, vision]`):
+una imagen sintética con un círculo rojo de borde negro y el texto "CAT" en azul, descrita
+correctamente por el modelo — color, forma y texto, los tres acertados.
+
 ### Jobs asíncronos: `start_generate`/`start_chat` + `job_status`
 
 Pensado para el caso donde un modelo puede tardar bastante en responder (un modelo cloud grande, o

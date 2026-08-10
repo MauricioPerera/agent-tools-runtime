@@ -40,29 +40,42 @@ const TOOLS = [
   },
   {
     name: 'generate',
-    description: 'Completion de una sola pasada (prompt -> texto), sin historial de mensajes. stream:false siempre -- espera la respuesta completa. Muta cómputo real (tiempo/costo), requiere confirm.',
+    description: 'Completion de una sola pasada (prompt -> texto), sin historial de mensajes. stream:false siempre -- espera la respuesta completa. `images` (opcional) manda imágenes junto al prompt -- requiere un modelo con capability "vision" (ver list_models), si no Ollama la ignora en silencio. Muta cómputo real (tiempo/costo), requiere confirm.',
     inputSchema: {
       type: 'object',
       properties: {
-        model: { type: 'string', description: 'Nombre exacto tal como aparece en list_models (ej. "qwen2.5:0.5b").' },
+        model: { type: 'string', description: 'Nombre exacto tal como aparece en list_models (ej. "qwen2.5:0.5b"). Para imágenes, necesita capability "vision".' },
         prompt: { type: 'string' },
         system: { type: 'string', description: 'System prompt opcional.' },
+        images: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Opcional. Imágenes en base64 puro (sin el prefijo "data:image/...;base64,"), una por elemento. Solo tiene efecto con un modelo capability "vision".',
+        },
       },
       required: ['model', 'prompt'],
     },
   },
   {
     name: 'chat',
-    description: 'Completion con historial de mensajes (role/content). stream:false siempre. Muta cómputo real (tiempo/costo), requiere confirm.',
+    description: 'Completion con historial de mensajes (role/content, `images` opcional por mensaje). stream:false siempre. `images` en un mensaje requiere un modelo con capability "vision" (ver list_models), si no Ollama lo ignora en silencio. Muta cómputo real (tiempo/costo), requiere confirm.',
     inputSchema: {
       type: 'object',
       properties: {
-        model: { type: 'string' },
+        model: { type: 'string', description: 'Para mandar imágenes, necesita capability "vision".' },
         messages: {
           type: 'array',
           items: {
             type: 'object',
-            properties: { role: { type: 'string' }, content: { type: 'string' } },
+            properties: {
+              role: { type: 'string' },
+              content: { type: 'string' },
+              images: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Opcional. Imágenes en base64 puro (sin el prefijo "data:image/...;base64,") adjuntas a ESTE mensaje.',
+              },
+            },
             required: ['role', 'content'],
           },
         },
@@ -77,20 +90,21 @@ const TOOLS = [
   },
   {
     name: 'start_generate',
-    description: 'Igual que generate, pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Usalo cuando el modelo puede tardar (cloud grande, modelos que razonan mucho) y no querés bloquear la llamada. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
+    description: 'Igual que generate (incluido `images` opcional), pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Usalo cuando el modelo puede tardar (cloud grande, modelos que razonan mucho) y no querés bloquear la llamada. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
     inputSchema: {
       type: 'object',
       properties: {
         model: { type: 'string' },
         prompt: { type: 'string' },
         system: { type: 'string' },
+        images: { type: 'array', items: { type: 'string' }, description: 'Opcional, mismo formato que generate.' },
       },
       required: ['model', 'prompt'],
     },
   },
   {
     name: 'start_chat',
-    description: 'Igual que chat, pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
+    description: 'Igual que chat (incluido `images` opcional por mensaje), pero NO espera la respuesta: dispara el request y devuelve {jobId} al toque. Consultá el resultado con job_status({jobId}). Muta cómputo real, requiere confirm.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -99,7 +113,11 @@ const TOOLS = [
           type: 'array',
           items: {
             type: 'object',
-            properties: { role: { type: 'string' }, content: { type: 'string' } },
+            properties: {
+              role: { type: 'string' },
+              content: { type: 'string' },
+              images: { type: 'array', items: { type: 'string' }, description: 'Opcional, mismo formato que chat.' },
+            },
             required: ['role', 'content'],
           },
         },
@@ -225,7 +243,7 @@ export class OllamaAdapter {
     }
     if (name === 'generate') {
       const data = await this.request('POST', '/api/generate', {
-        model: a.model, prompt: a.prompt, system: a.system, stream: false,
+        model: a.model, prompt: a.prompt, system: a.system, images: a.images, stream: false,
       });
       return textContent(formatGenerate(data));
     }
@@ -240,7 +258,7 @@ export class OllamaAdapter {
       return textContent(data);
     }
     if (name === 'start_generate') {
-      const jobId = this.startJob('/api/generate', { model: a.model, prompt: a.prompt, system: a.system, stream: false }, formatGenerate);
+      const jobId = this.startJob('/api/generate', { model: a.model, prompt: a.prompt, system: a.system, images: a.images, stream: false }, formatGenerate);
       return textContent({ jobId, status: 'running' });
     }
     if (name === 'start_chat') {

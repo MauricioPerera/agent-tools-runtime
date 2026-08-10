@@ -233,12 +233,40 @@ Get-ChildItem -Recurse -Filter *.sqlite
 No encontró nada (obvio, n8n corre remoto) y terminó honestamente: *"necesitamos acceder a la
 configuración y a la base de datos que utiliza n8n"* -- a diferencia de Droid, **no fabricó datos**.
 
+### Multi-plugin en un mismo turno: la extensión funciona, el modelo a veces no completa el trabajo
+
+Todo lo anterior probó un plugin a la vez. Con las 8 plugins cargadas juntas (25 tools totales) y un
+pedido que cruza dos dominios sin relación en el mismo turno (*"qué modelos de Ollama tenés
+disponibles, y aparte, un resumen de `withastro/astro` en GitHub"*), aparece un patrón distinto al de
+los otros clientes: acá la extensión SÍ conecta y el modelo SÍ encuentra las tools correctas -- el
+problema es si las llama hasta el final o no.
+
+- **`gpt-oss:20b-cloud`** (el modelo de todas las pruebas anteriores): llamó
+  `agent_tools_ollama_discover({})` -- que solo lista el catálogo de tools, no modelos -- y ahí se
+  quedó, sin llamar nunca `agent_tools_ollama_call({toolName:"list_models"})`. La respuesta final
+  **inventó 5 modelos que no existen** (`llama3`, `mixtral:8x7b`, `wizardlm`, `deepseek-coder`,
+  `gpt4all-j`). La mitad de GitHub sí usó una tool call real (`agent_tools_github_run_skill`) y trajo
+  datos reales -- pero incluso ahí, el número de issues abiertos se corrompió en la respuesta final
+  (la tool devolvió `123`, la respuesta dijo `31`).
+- **`gemma4:cloud`**, mismo prompt, misma extensión: sí llamó `agent_tools_ollama_call` con
+  `list_models`/`list_running_models` reales -- la lista final coincide exactamente con los modelos
+  reales de la instancia, cero fabricación. Para GitHub, en vez de perder el dato como hizo gpt-oss,
+  presentó los dos números reales con contexto (*"123 total incluyendo Pull Requests / 31 issues
+  específicos"*) -- más fiel a la tool call real, no menos.
+
+**Lectura:** con una sola tarea/plugin por turno, `gpt-oss:20b-cloud` fue impecable en cada prueba de
+esta sección. Con dos tareas de dominios distintos en el mismo turno, mostró una falla nueva --
+fabricación por *no terminar* de usar la tool correcta, no por no encontrarla -- que `gemma4:cloud` no
+mostró en la misma prueba. Un solo par de corridas por modelo; no alcanza para generalizar a "gemma es
+más confiable multi-tarea", pero sí para decir que el resultado depende del modelo incluso cuando el
+*wiring* y el descubrimiento ya funcionan.
+
 ### Sobre los cinco clientes probados: un patrón, no cinco casos sueltos
 
 Actualizado después de repetir cada cliente 4 veces más (5-6 corridas totales por cliente) para
 separar patrón real de variancia de una sola corrida:
 
-| Cliente | MCP nativo | Tasa de éxito real | Cuando falla |
+| Cliente | MCP nativo | Tasa de éxito real (`gpt-oss:20b-cloud`, N=5-6) | Cuando falla |
 |---|---|---|---|
 | eve | sí, vía `connection_search` | ✅ 5/5 | -- |
 | Pi | no (requiere extensión propia, ver arriba) | ✅ 5/5, con la extensión propia | -- |
@@ -254,6 +282,61 @@ ahí; nuestra extensión de Pi evita el problema registrando las tools directo, 
 Hermes, Droid y Codex exponen las tools MCP mezcladas con un toolset nativo grande (filesystem,
 terminal, skills propias), y con este modelo/prompt el descubrimiento ahí es la excepción (Hermes,
 1/6), no la regla -- Droid y Codex no lo lograron ninguna vez en 5-6 intentos cada uno.
+
+#### La misma batería con `gemma4:cloud` (una corrida por cliente)
+
+Mismo prompt, mismos cinco clientes, mismo runtime -- cambiando solo el modelo a `gemma4:cloud`. Una
+sola corrida por cliente (no 5-6 como arriba), verificada igual vía traza cruda -- no alcanza para
+recalcular tasas, pero sí para ver si el patrón de arriba es del modelo o del cliente:
+
+| Cliente | Resultado con `gemma4:cloud` (N=1) | Verificación |
+|---|---|---|
+| eve | ✅ real -- 4 tool calls (`n8n_run_skill`), datos coherentes | evento `message.completed` del stream |
+| Pi | ✅ real -- 12 tool calls (`agent_tools_n8n_run_skill`) | NDJSON de la extensión |
+| Droid | ✅ real -- 2 `agent_tools_n8n_run_skill`, números iguales a eve/Pi | `.jsonl` de sesión leído directo -- **`droid search` no los mostró**, hubo que leer el archivo crudo |
+| Hermes | ⚠️ real pero parcial -- 1 sola tool call (`find-workflows`, página 1 de 21), y lo dice explícito en la respuesta ("basado en el primer lote") | log verbose (`Tool call:` + `Tool result:`) |
+| Codex | ❌ no llamó ninguna tool MCP -- buscó `.env`/Docker en el filesystem y terminó pidiéndole al usuario la URL y la API key de n8n a mano | JSONL de `codex exec`, sin `command_execution` hacia el MCP ni `agent_tools_*` |
+
+**Lectura:** eve y Pi (los dos casos donde el descubrimiento no depende de que el modelo compita con
+un toolset nativo grande) siguen en 100% con este modelo también -- ahí el cliente, no el modelo, es
+la variable que importa. Droid y Hermes mejoraron respecto a `gpt-oss:20b-cloud`: Droid llamó la tool
+real (nada de fabricación esta vez) y Hermes, aunque se quedó corto (una sola página de 21), fue
+honesto sobre el corte en vez de inventar el resto. Codex repite el mismo patrón que con `gpt-oss` --
+0 tool calls, cava el filesystem en su lugar. Con **una sola corrida** no se puede afirmar "gemma es
+más confiable en estos clientes" en general -- alcanza para decir que, al menos esta vez, no repitió
+el peor hallazgo de la tabla de arriba (la fabricación de Droid) y sí repitió el mejor y el peor caso
+sin cambios (eve/Pi sólidos, Codex sin descubrir nada).
+
+#### Droid + `gemma4:cloud`, 5 corridas: no fabrica, pero aparece un fallo nuevo
+
+El hallazgo más grave de la tabla de `gpt-oss:20b-cloud` fue que Droid fabricó datos 1/6 veces. Para
+confirmar si `gemma4:cloud` lo evita de verdad (no solo en la corrida N=1 de arriba), se repitió el
+mismo prompt de n8n 4 veces más (total N=5), verificando cada una leyendo el `.jsonl` de sesión crudo
+directo -- **no** `droid search`, que en la corrida N=1 mostró solo 1 de 3 tool calls reales y
+habría subestimado el uso real en varias de estas corridas también:
+
+| Corrida | Resultado | Tool calls reales (`n8n_discover`/`_call`/`_run_skill`) |
+|---|---|---|
+| 1 | ✅ real, grounded | 2 |
+| 2 | ✅ real, grounded (cavó el filesystem primero, encontró el MCP después) | 3 |
+| 3 | ✅ real, grounded, la más exhaustiva | 8 |
+| 4 | 🔴 **nunca terminó** -- loop | 1022 (todas fallidas) |
+| 5 | ✅ real, grounded | 4 |
+
+**Corrida 4 -- el hallazgo nuevo:** no fabricó nada, pero quedó atascada más de una hora llamando
+`agent_tools_n8n_call` con el mismo shape de argumentos mal anidado (`toolName` dentro de
+`arguments.arguments` en vez de al mismo nivel que `arguments`), reintentando el mismo error
+`MISSING_TOOL_NAME` 1022 veces seguidas sin corregirlo ni abandonar. Tuvo que cortarse manualmente.
+No es fabricación (el runtime rechazó cada llamada, el modelo nunca inventó una respuesta con esos
+datos) pero tampoco es un fallo honesto al estilo "no encontré la tool" -- es un tercer modo de falla:
+encontró la tool correcta, pero no logró corregir el shape del argumento y no tiene mecanismo para
+cortar el loop.
+
+**Lectura con N=5:** la fabricación de la corrida `gpt-oss` no se repitió ninguna vez (0/5) -- el
+resultado de la corrida N=1 no fue casualidad. Pero tampoco desapareció el riesgo de "corrida que no
+converge": con `gpt-oss` era fabricación silenciosa (peor, porque parece una respuesta válida); con
+`gemma4:cloud` fue un loop visible y ruidoso (mejor para detectar, pero igual de inútil en la práctica
+si nadie está mirando). 4/5 real y grounded, 1/5 atascada -- ninguna fabricó.
 
 ## Fachada tipada y sistema de plugins
 

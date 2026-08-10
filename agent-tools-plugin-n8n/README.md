@@ -17,7 +17,7 @@ Una sola variable de URL para todo el plugin, más las credenciales:
 ```bash
 export N8N_INSTANCE_URL="https://tu-instancia.n8n"   # una sola vez, cubre MCP y REST
 export N8N_MCP_TOKEN="<tu token MCP>"
-export N8N_API_KEY="<tu api key REST, Settings → n8n API>"  # solo si usás audit-workflows/delete-workflow(-bulk)
+export N8N_API_KEY="<tu api key REST, Settings → n8n API>"  # solo si usás audit-workflows/delete-workflow(-bulk)/delete-data-tables-bulk/delete-execution(-bulk)
 
 # O un token store persistente en disco (ver n8n-oauth.mjs), si preferís
 # no pasar N8N_MCP_TOKEN por variable de entorno cada vez.
@@ -167,6 +167,37 @@ Las primeras tres, medidas en un benchmark real (ver [detalle](https://github.co
   el catálogo MCP). `credentialId` sale de `list_credentials`. Devuelve
   `{ isError: false, credentialId, deleted }` en éxito. Requiere `N8N_API_KEY`, sin confirmación
   propia — misma política `requireConfirm: false` que el resto del plugin.
+- **`delete-data-tables-bulk({ url?, namePattern })`** — borra en lote las data tables que matchean
+  `namePattern` (substring, case-insensitive, **requerido** — sin filtro no borra nada). A diferencia
+  de workflows/credenciales, acá ni siquiera existe un `DELETE` REST directo para la tabla entera: la
+  skill primero prueba `DELETE /api/v1/data-tables/{id}` por si la instancia lo expone, y si no (404/405)
+  cae al único camino documentado — un workflow throwaway de un solo nodo (`n8n-nodes-base.dataTable`,
+  `resource: "table"`, `operation: "delete"`, discriminadores confirmados vía `get_node_types`, no
+  adivinados), publicado, ejecutado y borrado de nuevo al terminar (vía el mismo mecanismo que
+  `delete-workflow`) para no dejar workflows basura atrás. Devuelve `{ isError, totalDataTables,
+  matchedCount, deletedCount, failedCount, deletionMethod: "rest"|"workflow", deleted: [...],
+  failed: [...] }`. Validado en vivo borrando 344/344 data tables de prueba en una instancia real, 0
+  workflows throwaway huérfanos al terminar. `search_data_tables` (la tool MCP subyacente) tiene un
+  tope duro de `limit<=100` y sus parámetros de paginación (`offset`/`skip`/`page`/`cursor`) se ignoran
+  en silencio — la skill lo resuelve re-consultando después de cada tanda borrada en vez de confiar en
+  paginación que no funciona (una vez borrada, una tabla no puede volver a aparecer en la siguiente
+  consulta). Requiere `N8N_API_KEY`, sin confirmación propia.
+- **`delete-execution({ url?, executionId })`** — borra una ejecución real por id, vía
+  `DELETE /api/v1/executions/{id}` de la REST API (no existe `delete_execution` en el catálogo MCP —
+  `get_execution`/`search_executions` son de solo lectura). Devuelve
+  `{ isError: false, executionId, deleted }` en éxito. Requiere `N8N_API_KEY`, sin confirmación propia.
+- **`delete-executions-bulk({ url?, status?, workflowId?, maxDelete? })`** — borra en lote, vía la
+  misma REST API, con dos resguardos que las demás skills de borrado en lote no necesitan: el
+  historial de ejecuciones puede estar en el orden de **millones** de registros (ya ~4.5M de IDs en la
+  instancia de referencia), así que además de **exigir al menos un filtro** (`status` y/o
+  `workflowId` — misma política que `delete-workflows-bulk`), tiene un **tope duro por llamada**
+  (`maxDelete`, default `100`, máximo `2000` — pedir más rechaza con error explícito en vez de
+  intentarlo). Pagina `GET /api/v1/executions` por cursor real hasta juntar `maxDelete` matches (no
+  hasta agotar el historial). Devuelve `{ isError, matchedCount, deletedCount, failedCount,
+  moreMayRemain, deleted: [...], failed: [...] }` — `moreMayRemain: true` avisa si probablemente queden
+  más allá del tope, para que quien llama decida si sigue con otra llamada. Validado en vivo con ambos
+  filtros (`workflowId` y `status`) sobre ejecuciones reales. Requiere `N8N_API_KEY`, sin confirmación
+  propia.
 
 ## Licencia
 

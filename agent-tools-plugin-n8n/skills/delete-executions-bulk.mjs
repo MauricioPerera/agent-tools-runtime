@@ -51,9 +51,15 @@ export async function run(_adapter, args) {
   }
   const { executions, truncated } = fetchResult;
 
+  // Borra en chunks concurrentes (no uno-por-uno secuencial): con un historial
+  // de ~100K+ ejecuciones, un DELETE secuencial por request (latencia de red
+  // incluida) se va a horas para vaciar el backlog. 20 en paralelo es un
+  // compromiso conservador -- no satura la instancia, pero corta el tiempo
+  // total en ese mismo orden de magnitud.
+  const CONCURRENCY = 20;
   const deleted = [];
   const failed = [];
-  for (const exec of executions) {
+  async function deleteOne(exec) {
     const delUrl = `${base}/api/v1/executions/${encodeURIComponent(exec.id)}`;
     try {
       const delResp = await fetch(delUrl, { method: 'DELETE', headers: { accept: 'application/json', 'X-N8N-API-KEY': apiKey } });
@@ -67,6 +73,9 @@ export async function run(_adapter, args) {
     } catch (e) {
       failed.push({ id: exec.id, error: e.message });
     }
+  }
+  for (let i = 0; i < executions.length; i += CONCURRENCY) {
+    await Promise.all(executions.slice(i, i + CONCURRENCY).map(deleteOne));
   }
 
   return {

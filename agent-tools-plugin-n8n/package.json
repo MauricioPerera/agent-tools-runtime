@@ -10,6 +10,9 @@
   "engines": {
     "node": ">=20.18.1"
   },
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
   "keywords": [
     "agent-tools-runtime",
     "mcp",
@@ -31,6 +34,7 @@
     "adapter.mjs",
     "n8n-oauth.mjs",
     "fuzzy-match.mjs",
+    "okf.mjs",
     "skills",
     "scripts"
   ]
